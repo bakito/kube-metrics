@@ -1,0 +1,6 @@
+.idea
+*.exe
+coverage.out
+*.upx
+debug.log
+pod-metrics*
