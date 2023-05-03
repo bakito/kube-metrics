@@ -164,6 +164,7 @@ func newPlot() *widgets.Plot {
 	p := widgets.NewPlot()
 	p.Data = make([][]float64, 1)
 	p.AxesColor = ui.ColorWhite
+	p.ShowXAxisLabels = false
 	p.TitleStyle.Fg = ui.ColorCyan
 	// clone line colors as both instances have the same instance of the color array
 	p.LineColors = append([]ui.Color{}, p.LineColors...)
