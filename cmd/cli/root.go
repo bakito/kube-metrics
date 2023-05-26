@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bakito/pod-metrics/version"
+	"github.com/bakito/kube-metrics/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
