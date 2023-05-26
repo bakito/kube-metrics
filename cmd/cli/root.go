@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bakito/pod-metrics/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -22,8 +23,9 @@ var (
 
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
-		Use:   "metrics",
-		Short: "Metrics",
+		Use:     "metrics",
+		Short:   "Metrics",
+		Version: version.Version,
 	}
 )
 

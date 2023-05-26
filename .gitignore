@@ -4,3 +4,5 @@ coverage.out
 *.upx
 debug.log
 kube-metrics*
+dist
+bin
