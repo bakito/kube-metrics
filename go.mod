@@ -6,7 +6,7 @@ require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/nsf/termbox-go v1.1.1
 	github.com/spf13/cobra v1.7.0
-	golang.org/x/text v0.12.0
+	golang.org/x/text v0.13.0
 	k8s.io/api v0.28.1
 	k8s.io/apimachinery v0.28.1
 	k8s.io/cli-runtime v0.28.1
