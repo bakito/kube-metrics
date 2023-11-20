@@ -7,10 +7,10 @@ require (
 	github.com/nsf/termbox-go v1.1.1
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/text v0.14.0
-	k8s.io/api v0.28.3
-	k8s.io/apimachinery v0.28.3
-	k8s.io/cli-runtime v0.28.3
-	k8s.io/client-go v0.28.3
+	k8s.io/api v0.28.4
+	k8s.io/apimachinery v0.28.4
+	k8s.io/cli-runtime v0.28.4
+	k8s.io/client-go v0.28.4
 	k8s.io/metrics v0.28.3
 	sigs.k8s.io/controller-runtime v0.16.3
 )
