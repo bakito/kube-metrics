@@ -4,11 +4,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      # covered by k8s.io/cli-runtime
-      - dependency-name: "k8s.io/api"
-      - dependency-name: "k8s.io/apimachinery"
-      - dependency-name: "k8s.io/client-go"
+    groups:
+      k8s:
+        patterns:
+          - "k8s.io/*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
