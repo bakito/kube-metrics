@@ -32,20 +32,16 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
-SEMVER ?= $(LOCALBIN)/semver
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 GORELEASER ?= $(LOCALBIN)/goreleaser
+SEMVER ?= $(LOCALBIN)/semver
 
 ## Tool Versions
+GOLANGCI_LINT_VERSION ?= v1.56.1
+GORELEASER_VERSION ?= v1.24.0
 SEMVER_VERSION ?= v1.1.3
-GOLANGCI_LINT_VERSION ?= v1.54.2
-GORELEASER_VERSION ?= v1.21.2
 
 ## Tool Installer
-.PHONY: semver
-semver: $(SEMVER) ## Download semver locally if necessary.
-$(SEMVER): $(LOCALBIN)
-	test -s $(LOCALBIN)/semver || GOBIN=$(LOCALBIN) go install github.com/bakito/semver@$(SEMVER_VERSION)
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
@@ -54,16 +50,20 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
 $(GORELEASER): $(LOCALBIN)
 	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
+.PHONY: semver
+semver: $(SEMVER) ## Download semver locally if necessary.
+$(SEMVER): $(LOCALBIN)
+	test -s $(LOCALBIN)/semver || GOBIN=$(LOCALBIN) go install github.com/bakito/semver@$(SEMVER_VERSION)
 
 ## Update Tools
 .PHONY: update-toolbox-tools
 update-toolbox-tools:
 	@rm -f \
-		$(LOCALBIN)/semver \
 		$(LOCALBIN)/golangci-lint \
-		$(LOCALBIN)/goreleaser
+		$(LOCALBIN)/goreleaser \
+		$(LOCALBIN)/semver
 	toolbox makefile -f $(LOCALDIR)/Makefile \
-		github.com/bakito/semver \
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
-		github.com/goreleaser/goreleaser
+		github.com/goreleaser/goreleaser \
+		github.com/bakito/semver
 ## toolbox - end

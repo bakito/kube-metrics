@@ -22,7 +22,7 @@ func nodesCmd() *cobra.Command {
 		Use:   "node <node-name>",
 		Short: "Live node usage <node-name>",
 		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			c, _, err := newClient()
 			if err != nil {
 				return err

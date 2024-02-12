@@ -26,7 +26,7 @@ func podCmd() *cobra.Command {
 		Use:   "pod <pod-name>",
 		Short: "Live pod metrics",
 		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			c, ns, err := newClient()
 			if err != nil {
 				return err
