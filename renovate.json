@@ -1,12 +1,20 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base"
-  ],
+  "dependencyDashboard": true,
   "postUpdateOptions": [
     "gomodTidy"
   ],
-  "assignees": [
-    "m.brugger"
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update toolbox _VERSION variables in Makefile",
+      "fileMatch": [
+        "^Makefile$"
+      ],
+      "matchStrings": [
+        "# renovate: packageName=(?<packageName>.+?)\\s+.+?_VERSION \\?= (?<currentValue>.+?)\\s"
+      ],
+      "datasourceTemplate": "go"
+    }
   ]
 }
