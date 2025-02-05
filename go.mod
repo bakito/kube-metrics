@@ -8,7 +8,7 @@ require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/nsf/termbox-go v1.1.1
 	github.com/spf13/cobra v1.8.1
-	golang.org/x/text v0.21.0
+	golang.org/x/text v0.22.0
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/cli-runtime v0.32.1
@@ -58,7 +58,7 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
