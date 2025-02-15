@@ -5,7 +5,7 @@ go 1.23.6
 require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/nsf/termbox-go v1.1.1
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.0
 	golang.org/x/text v0.22.0
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
@@ -51,7 +51,7 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
