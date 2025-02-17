@@ -5,7 +5,7 @@ go 1.23.6
 require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/nsf/termbox-go v1.1.1
-	github.com/spf13/cobra v1.9.0
+	github.com/spf13/cobra v1.9.1
 	golang.org/x/text v0.22.0
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
