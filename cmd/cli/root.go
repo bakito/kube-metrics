@@ -52,9 +52,13 @@ func init() {
 func newClient() (client.Client, string, error) {
 	cf := genericclioptions.NewConfigFlags(true)
 
-	ns, _, err := cf.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		ns = ""
+	var err error
+	ns := namespace
+	if ns == "" {
+		ns, _, err = cf.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			ns = ""
+		}
 	}
 
 	config, err := cf.ToRESTConfig()
