@@ -104,7 +104,7 @@ func runNodeMetrics(nodeName string, apiReader client.Reader) error {
 			case "q", "<C-c>":
 				return nil
 			case "<Resize>":
-				payload := e.Payload.(ui.Resize)
+				payload := e.Payload.(ui.Resize) //nolint:revive,forcetypeassert
 				cpuData, memData, title, cpuPlots, memPlots = buildNodeGraphs(node, headerHeight, payload.Width, payload.Height)
 				ui.Clear()
 				draw()
@@ -120,25 +120,30 @@ func buildNodeGraphs(
 	headerHeight int,
 	width int,
 	height int,
-) (*plotData, *plotData, *widgets.Paragraph, *widgets.Plot, *widgets.Plot) {
-	height = height - headerHeight
+) (cpuData, memData *plotData, p *widgets.Paragraph, lc, lc2 *widgets.Plot) {
+	height -= headerHeight
 
-	cpuData := &plotData{data: make([]float64, width/2-5)}
-	memData := &plotData{data: make([]float64, width/2-5)}
+	cpuData = &plotData{data: make([]float64, width/2-5)}
+	memData = &plotData{data: make([]float64, width/2-5)}
 
-	p := widgets.NewParagraph()
+	p = widgets.NewParagraph()
 	p.Title = " Node "
-	p.Text = fmt.Sprintf(" %s / %s / %s \n Press q to quit", node.GetName(), node.Status.NodeInfo.KubeletVersion, node.Status.NodeInfo.OSImage)
+	p.Text = fmt.Sprintf(
+		" %s / %s / %s \n Press q to quit",
+		node.GetName(),
+		node.Status.NodeInfo.KubeletVersion,
+		node.Status.NodeInfo.OSImage,
+	)
 	p.SetRect(0, 0, width, headerHeight)
 	p.TextStyle.Fg = ui.ColorWhite
 	p.BorderStyle.Fg = ui.ColorYellow
 
-	lc := newPlot()
+	lc = newPlot()
 	lc.Data[0] = cpuData.data
 	lc.SetRect(0, headerHeight, width/2, height+headerHeight)
 	lc.LineColors[0] = ui.ColorGreen
 
-	lc2 := newPlot()
+	lc2 = newPlot()
 	lc2.Data[0] = memData.data
 	lc2.SetRect(width/2, headerHeight, width, height+headerHeight)
 	lc2.LineColors[0] = ui.ColorYellow
@@ -146,12 +151,16 @@ func buildNodeGraphs(
 }
 
 func getNodeMetrics(ctx context.Context, apiReader client.Reader, nodeName string) (
-	float64, float64, error,
+	cpu, mem float64, err error,
 ) {
 	metrics := &metricsv1beta1.NodeMetrics{}
-	err := apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, metrics)
+	err = apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, metrics)
 	if err != nil {
 		return 0, 0, err
 	}
-	return float64(metrics.Usage.Cpu().MilliValue()) / 1000, float64(metrics.Usage.Memory().ScaledValue(resource.Mega)) / 1024, nil
+	return float64(
+			metrics.Usage.Cpu().MilliValue(),
+		) / 1000, float64(
+			metrics.Usage.Memory().ScaledValue(resource.Mega),
+		) / 1024, nil
 }

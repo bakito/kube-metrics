@@ -45,7 +45,7 @@ func init() {
 	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
 }
 
-func runPodMetrics(ns string, podName string, apiReader client.Reader) error {
+func runPodMetrics(ns, podName string, apiReader client.Reader) error {
 	if err := ui.Init(); err != nil {
 		log.Fatalf("failed to initialize termui: %v", err)
 	}
@@ -67,7 +67,15 @@ func runPodMetrics(ns string, podName string, apiReader client.Reader) error {
 	}
 
 	width, height := tb.Size()
-	cpuData, memData, title, cpuPlots, memPlots := buildGraphs(ns, podName, headerHeight, pod, selectedContainers, width, height)
+	cpuData, memData, title, cpuPlots, memPlots := buildGraphs(
+		ns,
+		podName,
+		headerHeight,
+		pod,
+		selectedContainers,
+		width,
+		height,
+	)
 
 	draw := func() {
 		cpu, mem, _ := getPodMetrics(ctx, apiReader, ns, podName)
@@ -119,7 +127,7 @@ func runPodMetrics(ns string, podName string, apiReader client.Reader) error {
 			case "q", "<C-c>":
 				return nil
 			case "<Resize>":
-				payload := e.Payload.(ui.Resize)
+				payload := e.Payload.(ui.Resize) //nolint:revive,forcetypeassert
 				cpuData, memData, title, cpuPlots, memPlots = buildGraphs(ns, podName, headerHeight, pod,
 					selectedContainers, payload.Width, payload.Height)
 				ui.Clear()
@@ -137,26 +145,26 @@ func buildGraphs(
 	headerHeight int,
 	pod *corev1.Pod,
 	selectedContainers []corev1.Container,
-	width int, height int,
+	width, height int,
 ) (
-	map[string]*plotData,
-	map[string]*plotData,
-	*widgets.Paragraph,
-	map[string]*widgets.Plot,
-	map[string]*widgets.Plot,
+	cpuData map[string]*plotData,
+	memData map[string]*plotData,
+	p *widgets.Paragraph,
+	cpuPlots map[string]*widgets.Plot,
+	memPlots map[string]*widgets.Plot,
 ) {
-	height = height - headerHeight
+	height -= headerHeight
 	if containerName == "" {
-		height = height / len(pod.Spec.Containers)
+		height /= len(pod.Spec.Containers)
 	}
 
-	cpuData := initData(selectedContainers, width/2-5)
-	memData := initData(selectedContainers, width/2-5)
+	cpuData = initData(selectedContainers, width/2-5)
+	memData = initData(selectedContainers, width/2-5)
 
-	cpuPlots := make(map[string]*widgets.Plot)
-	memPlots := make(map[string]*widgets.Plot)
+	cpuPlots = make(map[string]*widgets.Plot)
+	memPlots = make(map[string]*widgets.Plot)
 
-	p := widgets.NewParagraph()
+	p = widgets.NewParagraph()
 	p.Title = " Namespace / Pod "
 	p.Text = fmt.Sprintf(" %s / %s\n Press q to quit", ns, podName)
 	p.SetRect(0, 0, width, headerHeight)
@@ -190,16 +198,16 @@ func newPlot() *widgets.Plot {
 	return p
 }
 
-func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace string, podName string) (
-	map[string]float64, map[string]float64, error,
+func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace, podName string) (
+	cpu, mem map[string]float64, err error,
 ) {
 	metrics := &metricsv1beta1.PodMetrics{}
-	err := apiReader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, metrics)
+	err = apiReader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, metrics)
 	if err != nil {
 		return nil, nil, err
 	}
-	cpu := make(map[string]float64)
-	mem := make(map[string]float64)
+	cpu = make(map[string]float64)
+	mem = make(map[string]float64)
 
 	for _, c := range metrics.Containers {
 		cpuRl := c.Usage[corev1.ResourceCPU]

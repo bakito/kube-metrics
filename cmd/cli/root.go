@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bakito/kube-metrics/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -14,6 +13,8 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/bakito/kube-metrics/version"
 )
 
 var (
@@ -21,7 +22,7 @@ var (
 	namespace         string
 	nbrFormatLanguage string
 
-	// rootCmd represents the base command when called without any subcommands
+	// rootCmd represents the base command when called without any subcommands.
 	rootCmd = &cobra.Command{
 		Use:     "metrics",
 		Short:   "Metrics",
@@ -33,7 +34,7 @@ var (
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Println(err)
 		os.Exit(1)
 	}
 }
@@ -48,7 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&nbrFormatLanguage, "nfl", "de-CH", "the number format language to be used.")
 }
 
-// get a k8s client and default namespace
+// get a k8s client and default namespace.
 func newClient() (client.Client, string, error) {
 	cf := genericclioptions.NewConfigFlags(true)
 
