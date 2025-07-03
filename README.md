@@ -23,16 +23,21 @@ kube-metrics node <node-name>
 kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/) with the following configuration in `$XDG_CONFIG_HOME/k9s/plugins.yaml`.
 
 ```yaml
-plugins:
   kube-metrics:
     shortCut: m
     confirm: false
     description: "Metrics"
     scopes:
       - pods
+      - nodes
     command: sh
     background: false
     args:
       - -c
-      - "kube-metrics pod --namespace=$NAMESPACE $NAME"
+      - |
+        if [ -n "$NAMESPACE" ]; then
+          kube-metrics pod --namespace=$NAMESPACE $NAME
+        else
+          kube-metrics node $NAME
+        fi
 ```
