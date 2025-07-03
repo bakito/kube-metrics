@@ -18,7 +18,7 @@ kube-metrics node <node-name>
 
 [![node.gif](docs/node.png)](docs/node.gif)
 
-## Use a s k9s Plugin
+## Use as k9s Plugin
 
 kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/) with the following configuration in `$XDG_CONFIG_HOME/k9s/plugins.yaml`.
 
