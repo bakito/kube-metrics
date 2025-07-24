@@ -132,6 +132,7 @@ func runPodMetrics(ns, podName string, apiReader client.Reader) error {
 					selectedContainers, payload.Width, payload.Height)
 				ui.Clear()
 				draw()
+			default:
 			}
 		case <-ticker:
 			draw()
