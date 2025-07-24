@@ -108,6 +108,7 @@ func runNodeMetrics(nodeName string, apiReader client.Reader) error {
 				cpuData, memData, title, cpuPlots, memPlots = buildNodeGraphs(node, headerHeight, payload.Width, payload.Height)
 				ui.Clear()
 				draw()
+			default:
 			}
 		case <-ticker:
 			draw()
