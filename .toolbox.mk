@@ -8,10 +8,14 @@ TB_LOCALBIN ?= $(TB_LOCALDIR)/bin
 $(TB_LOCALBIN):
 	if [ ! -e $(TB_LOCALBIN) ]; then mkdir -p $(TB_LOCALBIN); fi
 
+# Helper functions
+STRIP_V = $(patsubst v%,%,$(1))
+
 ## Tool Binaries
 TB_GOLANGCI_LINT ?= $(TB_LOCALBIN)/golangci-lint
 TB_GORELEASER ?= $(TB_LOCALBIN)/goreleaser
 TB_SEMVER ?= $(TB_LOCALBIN)/semver
+TB_SYFT ?= $(TB_LOCALBIN)/syft
 
 ## Tool Versions
 # renovate: packageName=github.com/golangci/golangci-lint/v2
@@ -20,28 +24,36 @@ TB_GOLANGCI_LINT_VERSION ?= v2.5.0
 TB_GORELEASER_VERSION ?= v2.12.7
 # renovate: packageName=github.com/bakito/semver
 TB_SEMVER_VERSION ?= v1.1.7
+# renovate: packageName=github.com/anchore/syft/cmd/syft
+TB_SYFT_VERSION ?= v1.36.0
+TB_SYFT_VERSION_NUM ?= $(call STRIP_V,$(TB_SYFT_VERSION))
 
 ## Tool Installer
 .PHONY: tb.golangci-lint
-tb.golangci-lint: $(TB_GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(TB_GOLANGCI_LINT): $(TB_LOCALBIN)
-	test -s $(TB_LOCALBIN)/golangci-lint || GOBIN=$(TB_LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(TB_GOLANGCI_LINT_VERSION)
+tb.golangci-lint: ## Download golangci-lint locally if necessary.
+	@test -s $(TB_GOLANGCI_LINT) || \
+		GOBIN=$(TB_LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(TB_GOLANGCI_LINT_VERSION)
 .PHONY: tb.goreleaser
-tb.goreleaser: $(TB_GORELEASER) ## Download goreleaser locally if necessary.
-$(TB_GORELEASER): $(TB_LOCALBIN)
-	test -s $(TB_LOCALBIN)/goreleaser || GOBIN=$(TB_LOCALBIN) go install github.com/goreleaser/goreleaser/v2@$(TB_GORELEASER_VERSION)
+tb.goreleaser: ## Download goreleaser locally if necessary.
+	@test -s $(TB_GORELEASER) || \
+		GOBIN=$(TB_LOCALBIN) go install github.com/goreleaser/goreleaser/v2@$(TB_GORELEASER_VERSION)
 .PHONY: tb.semver
-tb.semver: $(TB_SEMVER) ## Download semver locally if necessary.
-$(TB_SEMVER): $(TB_LOCALBIN)
-	test -s $(TB_LOCALBIN)/semver || GOBIN=$(TB_LOCALBIN) go install github.com/bakito/semver@$(TB_SEMVER_VERSION)
+tb.semver: ## Download semver locally if necessary.
+	@test -s $(TB_SEMVER) || \
+		GOBIN=$(TB_LOCALBIN) go install github.com/bakito/semver@$(TB_SEMVER_VERSION)
+.PHONY: tb.syft
+tb.syft: ## Download syft locally if necessary.
+	@test -s $(TB_SYFT) && $(TB_SYFT) --version | grep -q $(TB_SYFT_VERSION_NUM) || \
+		GOBIN=$(TB_LOCALBIN) go install github.com/anchore/syft/cmd/syft@$(TB_SYFT_VERSION)
 
 ## Reset Tools
 .PHONY: tb.reset
 tb.reset:
 	@rm -f \
-		$(TB_LOCALBIN)/golangci-lint \
-		$(TB_LOCALBIN)/goreleaser \
-		$(TB_LOCALBIN)/semver
+		$(TB_GOLANGCI_LINT) \
+		$(TB_GORELEASER) \
+		$(TB_SEMVER) \
+		$(TB_SYFT)
 
 ## Update Tools
 .PHONY: tb.update
@@ -49,5 +61,6 @@ tb.update: tb.reset
 	toolbox makefile --renovate -f $(TB_LOCALDIR)/Makefile \
 		github.com/golangci/golangci-lint/v2/cmd/golangci-lint \
 		github.com/goreleaser/goreleaser/v2 \
-		github.com/bakito/semver
+		github.com/bakito/semver \
+		github.com/anchore/syft/cmd/syft?--version
 ## toolbox - end

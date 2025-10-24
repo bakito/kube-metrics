@@ -17,11 +17,11 @@ vhs-pod:
 vhs-node:
 	vhs docs/node.tape
 
-release: tb.semver tb.goreleaser
+release: tb.semver tb.goreleaser tb.syft
 	@version=$$($(TB_LOCALBIN)/semver); \
 	git tag -s $$version -m"Release $$version"
-	$(TB_GORELEASER) --clean
+	PATH=$(TB_LOCALBIN):$${PATH} $(TB_GORELEASER) --clean --parallelism 2
 
-test-release: tb.goreleaser
-	$(TB_GORELEASER)  --skip=publish --snapshot --clean
+test-release: tb.goreleaser tb.syft
+	PATH=$(TB_LOCALBIN):$${PATH} $(TB_GORELEASER) --skip=publish --snapshot --clean --parallelism 2
 
