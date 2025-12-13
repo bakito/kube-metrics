@@ -20,7 +20,8 @@ kube-metrics node <node-name>
 
 ## Use as k9s Plugin
 
-kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/) with the following configuration in `$XDG_CONFIG_HOME/k9s/plugins.yaml`.
+kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/) with the following configuration in
+`$XDG_CONFIG_HOME/k9s/plugins.yaml`.
 
 ```yaml
   kube-metrics:
@@ -40,4 +41,16 @@ kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/
         else
           kube-metrics node $NAME
         fi
+```
+
+## Installation
+
+### Brew
+
+```bash
+# Add the tap
+brew tap bakito/tap
+
+# install
+brew install --cask kube-metrics
 ```
