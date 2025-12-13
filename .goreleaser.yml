@@ -50,7 +50,7 @@ sboms:
 homebrew_casks:
   - name: kube-metrics
     homepage: "https://github.com/bakito/kube-metrics"
-    description: "CLI visualisations of kubernetes pod and node metrics"
+    description: "CLI visualizations of kubernetes pod and node metrics"
     repository:
       owner: "bakito"
       name: "homebrew-tap"
