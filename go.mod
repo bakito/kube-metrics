@@ -1,6 +1,6 @@
 module github.com/bakito/kube-metrics
 
-go 1.25.4
+go 1.26
 
 require (
 	github.com/gizak/termui/v3 v3.1.0
