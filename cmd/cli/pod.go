@@ -12,6 +12,7 @@ import (
 	tb "github.com/nsf/termbox-go"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,12 +28,12 @@ func podCmd() *cobra.Command {
 		Short: "Live pod metrics",
 		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
 		RunE: func(_ *cobra.Command, args []string) error {
-			c, ns, err := newClient()
+			c, dc, ns, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			return runPodMetrics(ns, args[0], c)
+			return runPodMetrics(ns, args[0], c, dc)
 		},
 	}
 }
@@ -45,7 +46,12 @@ func init() {
 	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
 }
 
-func runPodMetrics(ns, podName string, apiReader client.Reader) error {
+func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
+	// Verify that metrics resource is available
+	if err := verifyMetricsAvailable(dc, "pods"); err != nil {
+		return fmt.Errorf("metrics server is not available: %w", err)
+	}
+
 	if err := ui.Init(); err != nil {
 		log.Fatalf("failed to initialize termui: %v", err)
 	}
@@ -54,6 +60,7 @@ func runPodMetrics(ns, podName string, apiReader client.Reader) error {
 	headerHeight := 4
 
 	ctx := context.Background()
+
 	pod := &corev1.Pod{}
 	err := apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
 	if err != nil {
@@ -155,6 +162,9 @@ func buildGraphs(
 	memPlots map[string]*widgets.Plot,
 ) {
 	height -= headerHeight
+	if height < 0 {
+		height = 0
+	}
 	if containerName == "" {
 		height /= len(pod.Spec.Containers)
 	}
@@ -220,6 +230,9 @@ func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace, podN
 }
 
 func initData(containers []corev1.Container, size int) map[string]*plotData {
+	if size < 0 {
+		size = 0
+	}
 	data := make(map[string]*plotData)
 	for _, container := range containers {
 		if containerName == "" || container.Name == containerName {

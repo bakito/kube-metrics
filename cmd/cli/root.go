@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -50,7 +51,7 @@ func init() {
 }
 
 // get a k8s client and default namespace.
-func newClient() (client.Client, string, error) {
+func newClient() (client.Client, *discovery.DiscoveryClient, string, error) {
 	cf := genericclioptions.NewConfigFlags(true)
 
 	var err error
@@ -64,17 +65,52 @@ func newClient() (client.Client, string, error) {
 
 	config, err := cf.ToRESTConfig()
 	if err != nil {
-		return nil, ns, err
+		return nil, nil, ns, err
 	}
 
 	mapper, err := cf.ToRESTMapper()
 	if err != nil {
-		return nil, ns, err
+		return nil, nil, ns, err
 	}
 	cl, err := client.New(config, client.Options{Scheme: scheme, Mapper: mapper})
-	return cl, ns, err
+	if err != nil {
+		return nil, nil, ns, err
+	}
+
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	return cl, dc, ns, err
 }
 
 func numberPrinter() *message.Printer {
 	return message.NewPrinter(language.MustParse(nbrFormatLanguage))
+}
+
+func verifyMetricsAvailable(dc *discovery.DiscoveryClient, resourceName string) error {
+	apiGroups, err := dc.ServerGroups()
+	if err != nil {
+		return fmt.Errorf("failed to get server groups: %w", err)
+	}
+
+	for _, group := range apiGroups.Groups {
+		if group.Name == metricsv1beta1.GroupName {
+			// Check if the PodMetrics resource is available
+			resources, err := dc.ServerResourcesForGroupVersion(metricsv1beta1.SchemeGroupVersion.String())
+			if err != nil {
+				return fmt.Errorf("failed to get %s resources: %w", metricsv1beta1.SchemeGroupVersion.String(), err)
+			}
+
+			for _, resource := range resources.APIResources {
+				if resource.Name == resourceName {
+					return nil
+				}
+			}
+			return fmt.Errorf(
+				"%s resource not found in %s on the current cluster",
+				resourceName,
+				metricsv1beta1.SchemeGroupVersion.String(),
+			)
+		}
+	}
+
+	return fmt.Errorf("%s API group not found on the current cluster", metricsv1beta1.GroupName)
 }
