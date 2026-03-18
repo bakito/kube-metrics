@@ -25,10 +25,11 @@ func renderError(err error) tea.View {
 
 func newStreamlineChart(nbrPrinter *message.Printer) streamlinechart.Model {
 	c := streamlinechart.New(20, 10)
-	c.AutoMinY = true
-	c.AutoMaxY = true
+	c.AutoMinY = false
+	c.AutoMaxY = false
 	c.AutoMinX = true
 	c.AutoMaxX = true
+	c.SetYRange(0, 0.1) // initial small range
 	c.YLabelFormatter = func(_ int, v float64) string {
 		return nbrPrinter.Sprintf("%.1f", v)
 	}

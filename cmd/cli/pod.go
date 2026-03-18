@@ -82,11 +82,13 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			cpuChart := m.cpuCharts[n]
 			cpuChart.Push(cpu[n])
+			cpuChart.SetYRange(0, math.Max(0.1, m.cpuMax[n]))
 			cpuChart.DrawAll()
 			m.cpuCharts[n] = cpuChart
 
 			memChart := m.memCharts[n]
 			memChart.Push(mem[n])
+			memChart.SetYRange(0, math.Max(0.1, m.memMax[n]))
 			memChart.DrawAll()
 			m.memCharts[n] = memChart
 		}

@@ -87,6 +87,9 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cpuChart.Push(cpu)
 		m.memChart.Push(mem)
 
+		m.cpuChart.SetYRange(0, math.Max(0.1, m.cpuMax))
+		m.memChart.SetYRange(0, math.Max(0.1, m.memMax))
+
 		m.cpuChart.DrawAll()
 		m.memChart.DrawAll()
 
