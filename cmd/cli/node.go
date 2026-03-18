@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,12 +24,12 @@ func nodesCmd() *cobra.Command {
 		Short: "Live node usage <node-name>",
 		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
 		RunE: func(_ *cobra.Command, args []string) error {
-			c, _, err := newClient()
+			c, dc, _, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			return runNodeMetrics(args[0], c)
+			return runNodeMetrics(args[0], c, dc)
 		},
 	}
 }
@@ -39,7 +40,12 @@ func init() {
 	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
 }
 
-func runNodeMetrics(nodeName string, apiReader client.Reader) error {
+func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
+	// Verify that metrics resource is available
+	if err := verifyMetricsAvailable(dc, "nodes"); err != nil {
+		return fmt.Errorf("metrics server is not available: %w", err)
+	}
+
 	if err := ui.Init(); err != nil {
 		log.Fatalf("failed to initialize termui: %v", err)
 	}
@@ -123,9 +129,13 @@ func buildNodeGraphs(
 	height int,
 ) (cpuData, memData *plotData, p *widgets.Paragraph, lc, lc2 *widgets.Plot) {
 	height -= headerHeight
+	if height < 0 {
+		height = 0
+	}
 
-	cpuData = &plotData{data: make([]float64, width/2-5)}
-	memData = &plotData{data: make([]float64, width/2-5)}
+	size := max(width/2-5, 0)
+	cpuData = &plotData{data: make([]float64, size)}
+	memData = &plotData{data: make([]float64, size)}
 
 	p = widgets.NewParagraph()
 	p.Title = " Node "
