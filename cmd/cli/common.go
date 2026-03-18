@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/text/message"
 )
 
@@ -23,13 +24,16 @@ func renderError(err error) tea.View {
 	return tea.NewView(fmt.Sprintf("Error: %v\n", err))
 }
 
-func newStreamlineChart(nbrPrinter *message.Printer) streamlinechart.Model {
+func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labelStyle lipgloss.Style) streamlinechart.Model {
 	c := streamlinechart.New(20, 10)
 	c.AutoMinY = false
 	c.AutoMaxY = false
 	c.AutoMinX = true
 	c.AutoMaxX = true
 	c.SetYRange(0, 0.1) // initial small range
+	c.Style = chartStyle
+	c.AxisStyle = axisStyle
+	c.LabelStyle = labelStyle
 	c.YLabelFormatter = func(_ int, v float64) string {
 		return nbrPrinter.Sprintf("%.1f", v)
 	}

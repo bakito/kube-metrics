@@ -105,32 +105,39 @@ func (m nodeModel) View() tea.View {
 		return renderError(m.err)
 	}
 
+	nodeName := m.node.GetName()
+	nodeColor := containerColors[0] // Magenta
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(nodeColor)).Bold(true)
+
 	header := fmt.Sprintf(" Node: %s / %s / %s \n Press q to quit\n\n",
-		m.node.GetName(),
+		titleStyle.Render(nodeName),
 		m.node.Status.NodeInfo.KubeletVersion,
 		m.node.Status.NodeInfo.OSImage,
 	)
 
-	cpuTitle := fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
-		m.node.Name,
+	cpuTitle := titleStyle.Render(fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
+		nodeName,
 		m.node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
 		m.node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr*1000),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuMax*1000),
-	)
+	))
 
-	memTitle := fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
-		m.node.Name,
+	memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
+		nodeName,
 		m.node.Status.Capacity.Memory().ScaledValue(resource.Giga),
 		m.node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
 		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr),
 		m.nbrPrinter.Sprintf("%.1fGi", m.memMax),
-	)
+	))
 
 	cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuChart.View())
 	memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memChart.View())
 
-	v := tea.NewView(header + lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
+	style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(nodeColor))
+	charts := style.Render(lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
+
+	v := tea.NewView(header + charts)
 	v.AltScreen = true
 	return v
 }
@@ -156,8 +163,13 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 		nbrPrinter: numberPrinter(),
 	}
 
-	m.cpuChart = newStreamlineChart(m.nbrPrinter)
-	m.memChart = newStreamlineChart(m.nbrPrinter)
+	cpuStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
+	memStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
+	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
+
+	m.cpuChart = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle)
+	m.memChart = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle)
 
 	p := tea.NewProgram(m)
 	_, err = p.Run()

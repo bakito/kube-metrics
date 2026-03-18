@@ -108,34 +108,47 @@ func (m podModel) View() tea.View {
 	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
 
 	var rows []string
-	for _, container := range m.selectedContainers {
+	for i, container := range m.selectedContainers {
 		n := container.Name
+		color := containerColors[i%len(containerColors)]
+		style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color))
+		titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 
-		cpuTitle := fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		cpuTitle := titleStyle.Render(fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Name,
 			container.Resources.Requests.Cpu(),
 			container.Resources.Limits.Cpu(),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
-		)
+		))
 
-		memTitle := fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Name,
 			container.Resources.Requests.Memory(),
 			container.Resources.Limits.Memory(),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n]),
-		)
+		))
 
 		cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuCharts[n].View())
 		memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memCharts[n].View())
 
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
+		row := lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView)
+		rows = append(rows, style.Render(row))
 	}
 
 	v := tea.NewView(header + lipgloss.JoinVertical(lipgloss.Left, rows...))
 	v.AltScreen = true
 	return v
+}
+
+var containerColors = []string{
+	"5", // Magenta
+	"6", // Cyan
+	"3", // Yellow
+	"1", // Red
+	"4", // Blue
+	"2", // Green
 }
 
 func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
@@ -174,9 +187,14 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		nbrPrinter:         numberPrinter(),
 	}
 
+	cpuStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
+	memStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
+	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
+
 	for _, c := range selectedContainers {
-		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter)
-		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter)
+		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle)
+		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle)
 	}
 
 	p := tea.NewProgram(m)
