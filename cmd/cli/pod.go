@@ -50,10 +50,7 @@ func (m podModel) Init() tea.Cmd {
 func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		}
+		return handleKeyMsg(msg, m)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -103,7 +100,7 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m podModel) View() tea.View {
 	if m.err != nil {
-		return tea.NewView(fmt.Sprintf("Error: %v\n", m.err))
+		return renderError(m.err)
 	}
 
 	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
@@ -176,31 +173,8 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 	}
 
 	for _, c := range selectedContainers {
-		cpuChart := streamlinechart.New(20, 10)
-		cpuChart.AutoMinY = true
-		cpuChart.AutoMaxY = true
-		cpuChart.AutoMinX = true
-		cpuChart.AutoMaxX = true
-		cpuChart.YLabelFormatter = func(_ int, v float64) string {
-			return m.nbrPrinter.Sprintf("%.1f", v)
-		}
-		cpuChart.XLabelFormatter = func(_ int, v float64) string {
-			return m.nbrPrinter.Sprintf("%.1f", v)
-		}
-		m.cpuCharts[c.Name] = cpuChart
-
-		memChart := streamlinechart.New(20, 10)
-		memChart.AutoMinY = true
-		memChart.AutoMaxY = true
-		memChart.AutoMinX = true
-		memChart.AutoMaxX = true
-		memChart.YLabelFormatter = func(_ int, v float64) string {
-			return m.nbrPrinter.Sprintf("%.1f", v)
-		}
-		memChart.XLabelFormatter = func(_ int, v float64) string {
-			return m.nbrPrinter.Sprintf("%.1f", v)
-		}
-		m.memCharts[c.Name] = memChart
+		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter)
+		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter)
 	}
 
 	p := tea.NewProgram(m)

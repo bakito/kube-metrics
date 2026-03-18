@@ -63,15 +63,10 @@ func (m nodeModel) Init() tea.Cmd {
 	})
 }
 
-type tickMsg time.Time
-
 func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		}
+		return handleKeyMsg(msg, m)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -104,7 +99,7 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m nodeModel) View() tea.View {
 	if m.err != nil {
-		return tea.NewView(fmt.Sprintf("Error: %v\n", m.err))
+		return renderError(m.err)
 	}
 
 	header := fmt.Sprintf(" Node: %s / %s / %s \n Press q to quit\n\n",
@@ -158,31 +153,8 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 		nbrPrinter: numberPrinter(),
 	}
 
-	cpuChart := streamlinechart.New(20, 10)
-	cpuChart.AutoMinY = true
-	cpuChart.AutoMaxY = true
-	cpuChart.AutoMinX = true
-	cpuChart.AutoMaxX = true
-	cpuChart.YLabelFormatter = func(_ int, v float64) string {
-		return m.nbrPrinter.Sprintf("%.1f", v)
-	}
-	cpuChart.XLabelFormatter = func(_ int, v float64) string {
-		return m.nbrPrinter.Sprintf("%.1f", v)
-	}
-	m.cpuChart = cpuChart
-
-	memChart := streamlinechart.New(20, 10)
-	memChart.AutoMinY = true
-	memChart.AutoMaxY = true
-	memChart.AutoMinX = true
-	memChart.AutoMaxX = true
-	memChart.YLabelFormatter = func(_ int, v float64) string {
-		return m.nbrPrinter.Sprintf("%.1f", v)
-	}
-	memChart.XLabelFormatter = func(_ int, v float64) string {
-		return m.nbrPrinter.Sprintf("%.1f", v)
-	}
-	m.memChart = memChart
+	m.cpuChart = newStreamlineChart(m.nbrPrinter)
+	m.memChart = newStreamlineChart(m.nbrPrinter)
 
 	p := tea.NewProgram(m)
 	_, err = p.Run()
