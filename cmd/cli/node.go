@@ -150,22 +150,39 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 		return err
 	}
 
-	cpuChart := streamlinechart.New(20, 10)
-	cpuChart.AutoMinY = true
-	cpuChart.AutoMaxY = true
-	memChart := streamlinechart.New(20, 10)
-	memChart.AutoMinY = true
-	memChart.AutoMaxY = true
-
 	m := nodeModel{
 		nodeName:   nodeName,
 		apiReader:  apiReader,
 		node:       node,
-		cpuChart:   cpuChart,
-		memChart:   memChart,
 		interval:   interval,
 		nbrPrinter: numberPrinter(),
 	}
+
+	cpuChart := streamlinechart.New(20, 10)
+	cpuChart.AutoMinY = true
+	cpuChart.AutoMaxY = true
+	cpuChart.AutoMinX = true
+	cpuChart.AutoMaxX = true
+	cpuChart.YLabelFormatter = func(_ int, v float64) string {
+		return m.nbrPrinter.Sprintf("%.1f", v)
+	}
+	cpuChart.XLabelFormatter = func(_ int, v float64) string {
+		return m.nbrPrinter.Sprintf("%.1f", v)
+	}
+	m.cpuChart = cpuChart
+
+	memChart := streamlinechart.New(20, 10)
+	memChart.AutoMinY = true
+	memChart.AutoMaxY = true
+	memChart.AutoMinX = true
+	memChart.AutoMaxX = true
+	memChart.YLabelFormatter = func(_ int, v float64) string {
+		return m.nbrPrinter.Sprintf("%.1f", v)
+	}
+	memChart.XLabelFormatter = func(_ int, v float64) string {
+		return m.nbrPrinter.Sprintf("%.1f", v)
+	}
+	m.memChart = memChart
 
 	p := tea.NewProgram(m)
 	_, err = p.Run()

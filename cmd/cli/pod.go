@@ -159,34 +159,48 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		return fmt.Errorf(`selected container %q not found in pod "%s/%s"`, containerName, ns, podName)
 	}
 
-	cpuCharts := make(map[string]streamlinechart.Model)
-	memCharts := make(map[string]streamlinechart.Model)
-	for _, c := range selectedContainers {
-		cpuChart := streamlinechart.New(20, 10)
-		cpuChart.AutoMinY = true
-		cpuChart.AutoMaxY = true
-		cpuCharts[c.Name] = cpuChart
-
-		memChart := streamlinechart.New(20, 10)
-		memChart.AutoMinY = true
-		memChart.AutoMaxY = true
-		memCharts[c.Name] = memChart
-	}
-
 	m := podModel{
 		ns:                 ns,
 		podName:            podName,
 		apiReader:          apiReader,
 		pod:                pod,
 		selectedContainers: selectedContainers,
-		cpuCharts:          cpuCharts,
-		memCharts:          memCharts,
+		cpuCharts:          make(map[string]streamlinechart.Model),
+		memCharts:          make(map[string]streamlinechart.Model),
 		cpuMax:             make(map[string]float64),
 		memMax:             make(map[string]float64),
 		cpuCurr:            make(map[string]float64),
 		memCurr:            make(map[string]float64),
 		interval:           interval,
 		nbrPrinter:         numberPrinter(),
+	}
+
+	for _, c := range selectedContainers {
+		cpuChart := streamlinechart.New(20, 10)
+		cpuChart.AutoMinY = true
+		cpuChart.AutoMaxY = true
+		cpuChart.AutoMinX = true
+		cpuChart.AutoMaxX = true
+		cpuChart.YLabelFormatter = func(_ int, v float64) string {
+			return m.nbrPrinter.Sprintf("%.1f", v)
+		}
+		cpuChart.XLabelFormatter = func(_ int, v float64) string {
+			return m.nbrPrinter.Sprintf("%.1f", v)
+		}
+		m.cpuCharts[c.Name] = cpuChart
+
+		memChart := streamlinechart.New(20, 10)
+		memChart.AutoMinY = true
+		memChart.AutoMaxY = true
+		memChart.AutoMinX = true
+		memChart.AutoMaxX = true
+		memChart.YLabelFormatter = func(_ int, v float64) string {
+			return m.nbrPrinter.Sprintf("%.1f", v)
+		}
+		memChart.XLabelFormatter = func(_ int, v float64) string {
+			return m.nbrPrinter.Sprintf("%.1f", v)
+		}
+		m.memCharts[c.Name] = memChart
 	}
 
 	p := tea.NewProgram(m)
