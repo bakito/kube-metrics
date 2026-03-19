@@ -33,7 +33,11 @@ func renderError(err error) tea.View {
 	return tea.NewView(fmt.Sprintf("Error: %v\n", err))
 }
 
-func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labelStyle lipgloss.Style, yFormat func(v float64) string) streamlinechart.Model {
+func newStreamlineChart(
+	nbrPrinter *message.Printer,
+	chartStyle, axisStyle, labelStyle lipgloss.Style,
+	yFormat func(v float64) string,
+) streamlinechart.Model {
 	c := streamlinechart.New(20, 10)
 	c.AutoMinY = true
 	c.AutoMaxY = true
