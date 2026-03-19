@@ -196,8 +196,8 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
 
 	for _, c := range selectedContainers {
-		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle)
-		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle)
+		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle, cpuFormat)
+		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle, memFormat)
 	}
 
 	p := tea.NewProgram(m)

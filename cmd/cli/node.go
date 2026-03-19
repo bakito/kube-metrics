@@ -170,8 +170,8 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
 
-	m.cpuChart = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle)
-	m.memChart = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle)
+	m.cpuChart = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle, cpuFormat)
+	m.memChart = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle, memFormat)
 
 	p := tea.NewProgram(m)
 	_, err = p.Run()

@@ -10,6 +10,15 @@ import (
 	"golang.org/x/text/message"
 )
 
+var (
+	memFormat = func(v float64) string {
+		return fmt.Sprintf("%.2fGi", v/1024)
+	}
+	cpuFormat = func(v float64) string {
+		return fmt.Sprintf("%.2f", v)
+	}
+)
+
 type tickMsg time.Time
 
 func handleKeyMsg(msg tea.KeyMsg, m tea.Model) (tea.Model, tea.Cmd) {
@@ -24,7 +33,7 @@ func renderError(err error) tea.View {
 	return tea.NewView(fmt.Sprintf("Error: %v\n", err))
 }
 
-func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labelStyle lipgloss.Style) streamlinechart.Model {
+func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labelStyle lipgloss.Style, yFormat func(v float64) string) streamlinechart.Model {
 	c := streamlinechart.New(20, 10)
 	c.AutoMinY = true
 	c.AutoMaxY = true
@@ -36,10 +45,8 @@ func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labe
 	c.AxisStyle = axisStyle
 	c.LabelStyle = labelStyle
 	c.YLabelFormatter = func(_ int, v float64) string {
-		return nbrPrinter.Sprintf("%.1f", v)
+		return nbrPrinter.Sprint(yFormat(v))
 	}
-	c.XLabelFormatter = func(_ int, v float64) string {
-		return nbrPrinter.Sprintf("%.1f", v)
-	}
+	c.XLabelFormatter = func(_ int, v float64) string { return "" }
 	return c
 }
