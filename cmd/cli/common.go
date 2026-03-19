@@ -30,6 +30,8 @@ func newStreamlineChart(nbrPrinter *message.Printer, chartStyle, axisStyle, labe
 	c.AutoMaxY = true
 	c.AutoMinX = true
 	c.AutoMaxX = true
+	c.SetYStep(4)
+	c.SetXStep(4)
 	c.Style = chartStyle
 	c.AxisStyle = axisStyle
 	c.LabelStyle = labelStyle
