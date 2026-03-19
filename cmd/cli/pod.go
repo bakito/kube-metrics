@@ -54,16 +54,17 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		chartHeight := (m.height - 6)
+		chartWidth := (m.width - 2) / 2
+		chartHeight := m.height - 6
 		if len(m.selectedContainers) > 0 {
 			chartHeight /= len(m.selectedContainers)
 		}
 		for _, c := range m.selectedContainers {
 			cpu := m.cpuCharts[c.Name]
-			cpu.Resize(m.width/2, chartHeight)
+			cpu.Resize(chartWidth, chartHeight)
 			m.cpuCharts[c.Name] = cpu
 			mem := m.memCharts[c.Name]
-			mem.Resize(m.width/2, chartHeight)
+			mem.Resize(chartWidth, chartHeight)
 			m.memCharts[c.Name] = mem
 		}
 	case tickMsg:
@@ -82,13 +83,11 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			cpuChart := m.cpuCharts[n]
 			cpuChart.Push(cpu[n])
-			cpuChart.SetYRange(0, math.Max(0.1, m.cpuMax[n]))
 			cpuChart.DrawAll()
 			m.cpuCharts[n] = cpuChart
 
 			memChart := m.memCharts[n]
 			memChart.Push(mem[n])
-			memChart.SetYRange(0, math.Max(0.1, m.memMax[n]))
 			memChart.DrawAll()
 			m.memCharts[n] = memChart
 		}
@@ -108,6 +107,7 @@ func (m podModel) View() tea.View {
 	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
 
 	var rows []string
+	chartWidth := (m.width - 2) / 2
 	for i, container := range m.selectedContainers {
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
@@ -121,6 +121,7 @@ func (m podModel) View() tea.View {
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
 		))
+		cpuTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(cpuTitle)
 
 		memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Name,
@@ -129,6 +130,7 @@ func (m podModel) View() tea.View {
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n]),
 		))
+		memTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(memTitle)
 
 		cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuCharts[n].View())
 		memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memCharts[n].View())

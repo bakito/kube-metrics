@@ -70,8 +70,9 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.cpuChart.Resize(m.width/2, m.height-4)
-		m.memChart.Resize(m.width/2, m.height-4)
+		chartWidth := (m.width - 2) / 2
+		m.cpuChart.Resize(chartWidth, m.height-4)
+		m.memChart.Resize(chartWidth, m.height-4)
 	case tickMsg:
 		cpu, mem, err := getNodeMetrics(context.Background(), m.apiReader, m.nodeName)
 		if err != nil {
@@ -86,9 +87,6 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.cpuChart.Push(cpu)
 		m.memChart.Push(mem)
-
-		m.cpuChart.SetYRange(0, math.Max(0.1, m.cpuMax))
-		m.memChart.SetYRange(0, math.Max(0.1, m.memMax))
 
 		m.cpuChart.DrawAll()
 		m.memChart.DrawAll()
@@ -115,6 +113,7 @@ func (m nodeModel) View() tea.View {
 		m.node.Status.NodeInfo.OSImage,
 	)
 
+	chartWidth := (m.width - 2) / 2
 	cpuTitle := titleStyle.Render(fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
 		nodeName,
 		m.node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
@@ -122,6 +121,7 @@ func (m nodeModel) View() tea.View {
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr*1000),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuMax*1000),
 	))
+	cpuTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(cpuTitle)
 
 	memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
 		nodeName,
@@ -130,6 +130,7 @@ func (m nodeModel) View() tea.View {
 		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr),
 		m.nbrPrinter.Sprintf("%.1fGi", m.memMax),
 	))
+	memTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(memTitle)
 
 	cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuChart.View())
 	memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memChart.View())
