@@ -95,6 +95,7 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
 			return tickMsg(t)
 		})
+	default:
 	}
 	return m, nil
 }
@@ -222,16 +223,6 @@ func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace, podN
 		mem[c.Name] = float64(memRl.Value() / (1024 * 1024))
 	}
 	return cpu, mem, nil
-}
-
-func initData(containers []corev1.Container) map[string]float64 {
-	data := make(map[string]float64)
-	for _, container := range containers {
-		if containerName == "" || container.Name == containerName {
-			data[container.Name] = 0
-		}
-	}
-	return data
 }
 
 func selectContainers(containers []corev1.Container) []corev1.Container {

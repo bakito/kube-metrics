@@ -94,6 +94,7 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
 			return tickMsg(t)
 		})
+	default:
 	}
 	return m, nil
 }
