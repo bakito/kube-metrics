@@ -123,7 +123,7 @@ func (m nodeModel) View() tea.View {
 		m.nbrPrinter.Sprintf("%.1fGi", m.memMax/1024),
 	)
 
-	charts := m.chartGroup.Render(m.width, nodeColor, cpuTitle, memTitle)
+	charts := m.chartGroup.Render(m.width, nodeColor, cpuTitle, memTitle, false)
 
 	v := tea.NewView(header + charts)
 	v.AltScreen = true

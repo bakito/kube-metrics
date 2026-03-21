@@ -25,6 +25,7 @@ type podModel struct {
 	ns                 string
 	podName            string
 	apiReader          client.Reader
+	pod                *corev1.Pod
 	selectedContainers []corev1.Container
 	chartGroups        map[string]ChartGroup
 	cpuMax             map[string]float64
@@ -36,6 +37,8 @@ type podModel struct {
 	height             int
 	interval           time.Duration
 	nbrPrinter         *message.Printer
+	selectedIndex      int
+	isFocused          bool
 }
 
 func podCmd() *cobra.Command {
@@ -71,29 +74,49 @@ func (m podModel) Init() tea.Cmd {
 func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return handleKeyMsg(msg, m)
+		switch msg.String() {
+		case "q", "ctrl+c":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+			return m, tea.Quit
+		case "enter":
+			m.isFocused = !m.isFocused
+			m = m.recalculateSizes()
+			return m, nil
+		case "esc", "backspace":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+		case "up", "k":
+			cols := m.getCols()
+			if m.selectedIndex-cols >= 0 {
+				m.selectedIndex -= cols
+			}
+		case "down", "j":
+			cols := m.getCols()
+			if m.selectedIndex+cols < len(m.selectedContainers) {
+				m.selectedIndex += cols
+			}
+		case "left", "h":
+			if m.selectedIndex > 0 {
+				m.selectedIndex--
+			}
+		case "right", "l":
+			if m.selectedIndex < len(m.selectedContainers)-1 {
+				m.selectedIndex++
+			}
+		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		cols := 1
-		if len(m.selectedContainers) > 2 {
-			cols = 2
-		}
-		rowsCount := (len(m.selectedContainers) + cols - 1) / cols
-
-		widthPerGroup := m.width / cols
-		chartWidth := (widthPerGroup - 2) / 2
-		chartHeight := (m.height - 3) / rowsCount - 3
-		if chartHeight < 2 {
-			chartHeight = 2
-		}
-
-		for _, c := range m.selectedContainers {
-			group := m.chartGroups[c.Name]
-			group.Resize(chartWidth, chartHeight)
-			m.chartGroups[c.Name] = group
-		}
+		m = m.recalculateSizes()
 	case tickMsg:
+
 		cpu, mem, err := getPodMetrics(context.Background(), m.apiReader, m.ns, m.podName)
 		if err != nil {
 			m.err = err
@@ -121,22 +144,62 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m podModel) getCols() int {
+	if m.isFocused {
+		return 1
+	}
+	if len(m.selectedContainers) > 2 {
+		return 2
+	}
+	return 1
+}
+
+func (m podModel) recalculateSizes() podModel {
+	cols := m.getCols()
+	rowsCount := (len(m.selectedContainers) + cols - 1) / cols
+
+	widthPerGroup := m.width / cols
+	chartWidth := (widthPerGroup - 2) / 2
+	chartHeight := (m.height - 3) / rowsCount - 3
+
+	if m.isFocused {
+		chartHeight = m.height - 6
+	}
+
+	if chartHeight < 2 {
+		chartHeight = 2
+	}
+
+	for _, c := range m.selectedContainers {
+		group := m.chartGroups[c.Name]
+		group.Resize(chartWidth, chartHeight)
+		m.chartGroups[c.Name] = group
+	}
+	return m
+}
+
 func (m podModel) View() tea.View {
 	if m.err != nil {
 		return renderError(m.err)
 	}
 
-	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
-
-	cols := 1
-	if len(m.selectedContainers) > 2 {
-		cols = 2
+	help := "Press enter to focus, arrows to navigate, q to quit"
+	if m.isFocused {
+		help = "Press enter/esc to go back, q to quit"
 	}
+
+	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n %s\n\n", m.ns, m.podName, help)
+
+	cols := m.getCols()
 	widthPerGroup := m.width / cols
 
 	var rows []string
 	var currentRow []string
 	for i, container := range m.selectedContainers {
+		if m.isFocused && i != m.selectedIndex {
+			continue
+		}
+
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
 
@@ -157,7 +220,8 @@ func (m podModel) View() tea.View {
 		)
 
 		group := m.chartGroups[n]
-		currentRow = append(currentRow, group.Render(widthPerGroup, color, cpuTitle, memTitle))
+		view := group.Render(widthPerGroup, color, cpuTitle, memTitle, i == m.selectedIndex)
+		currentRow = append(currentRow, view)
 
 		if len(currentRow) == cols || i == len(m.selectedContainers)-1 {
 			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
@@ -197,6 +261,7 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		ns:                 ns,
 		podName:            podName,
 		apiReader:          apiReader,
+		pod:                pod,
 		selectedContainers: selectedContainers,
 		chartGroups:        make(map[string]ChartGroup),
 		cpuMax:             make(map[string]float64),
