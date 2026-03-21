@@ -18,19 +18,20 @@ import (
 )
 
 type nodeModel struct {
-	nodeName   string
-	apiReader  client.Reader
-	node       *corev1.Node
-	chartGroup ChartGroup
-	cpuMax     float64
-	memMax     float64
-	cpuCurr    float64
-	memCurr    float64
-	err        error
-	width      int
-	height     int
-	interval   time.Duration
-	nbrPrinter *message.Printer
+	nodeName         string
+	apiReader        client.Reader
+	node             *corev1.Node
+	chartGroup       ChartGroup
+	cpuMax           float64
+	memMax           float64
+	cpuCurr          float64
+	memCurr          float64
+	err              error
+	availableOptions []string
+	width            int
+	height           int
+	interval         time.Duration
+	nbrPrinter       *message.Printer
 }
 
 func nodesCmd() *cobra.Command {
@@ -56,6 +57,9 @@ func init() {
 }
 
 func (m nodeModel) Init() tea.Cmd {
+	if m.err != nil {
+		return nil
+	}
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
@@ -70,6 +74,10 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.chartGroup.Resize((m.width-2)/2, m.height-6)
 	case tickMsg:
+		if m.err != nil {
+			return m, nil
+		}
+
 		cpu, mem, err := getNodeMetrics(context.Background(), m.apiReader, m.nodeName)
 		if err != nil {
 			m.err = err
@@ -94,7 +102,7 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m nodeModel) View() tea.View {
 	if m.err != nil {
-		return renderError(m.err)
+		return renderError(m.err, m.availableOptions...)
 	}
 
 	nodeName := m.node.GetName()
@@ -137,17 +145,26 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 	ctx := context.Background()
 	node := &corev1.Node{}
 	err := apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, node)
-	if err != nil {
-		return err
+
+	var availableOptions []string
+	if err != nil && isNotFound(err) {
+		nodeList := &corev1.NodeList{}
+		if listErr := apiReader.List(ctx, nodeList); listErr == nil {
+			for _, n := range nodeList.Items {
+				availableOptions = append(availableOptions, n.Name)
+			}
+		}
 	}
 
 	m := nodeModel{
-		nodeName:   nodeName,
-		apiReader:  apiReader,
-		node:       node,
-		interval:   interval,
-		nbrPrinter: numberPrinter(),
-		chartGroup: NewChartGroup(numberPrinter()),
+		nodeName:         nodeName,
+		apiReader:        apiReader,
+		node:             node,
+		interval:         interval,
+		nbrPrinter:       numberPrinter(),
+		chartGroup:       NewChartGroup(numberPrinter()),
+		err:              err,
+		availableOptions: availableOptions,
 	}
 
 	p := tea.NewProgram(m)

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/message"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +20,7 @@ import (
 var (
 	containerName string
 	interval      time.Duration
+	selector      string
 )
 
 type podModel struct {
@@ -33,6 +35,7 @@ type podModel struct {
 	cpuCurr            map[string]float64
 	memCurr            map[string]float64
 	err                error
+	availableOptions   []string
 	width              int
 	height             int
 	interval           time.Duration
@@ -43,16 +46,25 @@ type podModel struct {
 
 func podCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "pod <pod-name>",
+		Use:   "pod [<pod-name>]",
 		Short: "Live pod metrics",
-		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
-		RunE: func(_ *cobra.Command, args []string) error {
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			podName := ""
+			if len(args) > 0 {
+				podName = args[0]
+			}
+
+			if podName == "" && selector == "" {
+				return cmd.Help()
+			}
+
 			c, dc, ns, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			return runPodMetrics(ns, args[0], c, dc)
+			return runPodMetrics(ns, podName, c, dc)
 		},
 	}
 }
@@ -63,9 +75,14 @@ func init() {
 
 	cmd.PersistentFlags().StringVar(&containerName, "container", "", "A container name to show")
 	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
+	cmd.PersistentFlags().
+		StringVarP(&selector, "selector", "l", "", "Selector (label query) to filter on, supports '=', '==', '!=', 'in', 'notin'.(e.g. -l key1=value1,key2=value2,key3 in (value3)). Matching objects must satisfy all of the specified label constraints.")
 }
 
 func (m podModel) Init() tea.Cmd {
+	if m.err != nil {
+		return nil
+	}
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
@@ -83,6 +100,9 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Quit
 		case "enter":
+			if m.err != nil {
+				return m, nil
+			}
 			m.isFocused = !m.isFocused
 			m = m.recalculateSizes()
 			return m, nil
@@ -93,20 +113,32 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "up", "k":
+			if m.err != nil {
+				return m, nil
+			}
 			cols := m.getCols()
 			if m.selectedIndex-cols >= 0 {
 				m.selectedIndex -= cols
 			}
 		case "down", "j":
+			if m.err != nil {
+				return m, nil
+			}
 			cols := m.getCols()
 			if m.selectedIndex+cols < len(m.selectedContainers) {
 				m.selectedIndex += cols
 			}
 		case "left", "h":
+			if m.err != nil {
+				return m, nil
+			}
 			if m.selectedIndex > 0 {
 				m.selectedIndex--
 			}
 		case "right", "l":
+			if m.err != nil {
+				return m, nil
+			}
 			if m.selectedIndex < len(m.selectedContainers)-1 {
 				m.selectedIndex++
 			}
@@ -116,6 +148,9 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m = m.recalculateSizes()
 	case tickMsg:
+		if m.err != nil {
+			return m, nil
+		}
 
 		cpu, mem, err := getPodMetrics(context.Background(), m.apiReader, m.ns, m.podName)
 		if err != nil {
@@ -149,6 +184,9 @@ func (m podModel) getCols() int {
 }
 
 func (m podModel) recalculateSizes() podModel {
+	if m.err != nil {
+		return m
+	}
 	rowsCount := len(m.selectedContainers)
 	if m.isFocused {
 		rowsCount = 1
@@ -176,7 +214,7 @@ func (m podModel) recalculateSizes() podModel {
 
 func (m podModel) View() tea.View {
 	if m.err != nil {
-		return renderError(m.err)
+		return renderError(m.err, m.availableOptions...)
 	}
 
 	help := "Press enter to focus, arrows to navigate, q to quit"
@@ -239,16 +277,66 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 	}
 
 	ctx := context.Background()
-	pod := &corev1.Pod{}
-	err := apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
-	if err != nil {
-		return err
+
+	var pod *corev1.Pod
+	var err error
+	var availableOptions []string
+
+	if selector != "" {
+		sel, parseErr := labels.Parse(selector)
+		if parseErr != nil {
+			return fmt.Errorf("invalid selector: %w", parseErr)
+		}
+		podList := &corev1.PodList{}
+		err = apiReader.List(ctx, podList, client.InNamespace(ns), client.MatchingLabelsSelector{Selector: sel})
+		if err == nil {
+			switch {
+			case len(podList.Items) == 0:
+				err = fmt.Errorf("no pods matching selector %q found in namespace %q", selector, ns)
+			case len(podList.Items) > 1 && podName == "":
+				err = fmt.Errorf("multiple pods matching selector %q found in namespace %q", selector, ns)
+				for _, p := range podList.Items {
+					availableOptions = append(availableOptions, p.Name)
+				}
+			case podName != "": // If podName is provided, find it in the list
+				found := false
+				for i := range podList.Items {
+					if podList.Items[i].Name == podName {
+						pod = &podList.Items[i]
+						found = true
+						break
+					}
+				}
+				if !found {
+					err = fmt.Errorf("pod %q not found in pods matching selector %q", podName, selector)
+					for _, p := range podList.Items {
+						availableOptions = append(availableOptions, p.Name)
+					}
+				}
+			default:
+				pod = &podList.Items[0]
+				podName = pod.Name
+			}
+		}
+	} else {
+		pod = &corev1.Pod{}
+		err = apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
+		if err != nil && isNotFound(err) {
+			podList := &corev1.PodList{}
+			if listErr := apiReader.List(ctx, podList, client.InNamespace(ns)); listErr == nil {
+				for _, p := range podList.Items {
+					availableOptions = append(availableOptions, p.Name)
+				}
+			}
+		}
 	}
 
-	selectedContainers := selectContainers(pod.Spec.Containers)
-
-	if len(selectedContainers) == 0 {
-		return fmt.Errorf(`selected container %q not found in pod "%s/%s"`, containerName, ns, podName)
+	var selectedContainers []corev1.Container
+	if err == nil && pod != nil {
+		selectedContainers = selectContainers(pod.Spec.Containers)
+		if len(selectedContainers) == 0 {
+			err = fmt.Errorf(`selected container %q not found in pod "%s/%s"`, containerName, ns, podName)
+		}
 	}
 
 	m := podModel{
@@ -264,10 +352,14 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		memCurr:            make(map[string]float64),
 		interval:           interval,
 		nbrPrinter:         numberPrinter(),
+		err:                err,
+		availableOptions:   availableOptions,
 	}
 
-	for _, c := range selectedContainers {
-		m.chartGroups[c.Name] = NewChartGroup(m.nbrPrinter)
+	if err == nil {
+		for _, c := range selectedContainers {
+			m.chartGroups[c.Name] = NewChartGroup(m.nbrPrinter)
+		}
 	}
 
 	p := tea.NewProgram(m)

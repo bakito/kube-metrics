@@ -10,6 +10,7 @@ import (
 	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/text/message"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -65,7 +66,7 @@ func renderError(err error, options ...string) tea.View {
 		sb.WriteString(lipgloss.NewStyle().Bold(true).Render("Available options:"))
 		sb.WriteString("\n")
 		for _, opt := range options {
-			sb.WriteString(fmt.Sprintf("  - %s\n", optionStyle.Render(opt)))
+			fmt.Fprintf(&sb, "  - %s\n", optionStyle.Render(opt))
 		}
 	}
 
@@ -74,6 +75,10 @@ func renderError(err error, options ...string) tea.View {
 	v := tea.NewView(sb.String())
 	v.AltScreen = true
 	return v
+}
+
+func isNotFound(err error) bool {
+	return apierrors.IsNotFound(err)
 }
 
 func newStreamlineChart(
