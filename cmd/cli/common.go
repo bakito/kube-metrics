@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/NimbleMarkets/ntcharts/canvas/runes"
 	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/text/message"
@@ -59,13 +60,13 @@ func newStreamlineChart(
 	c.AutoMaxX = true
 	c.SetYStep(4)
 	c.SetXStep(4)
-	c.Style = chartStyle
 	c.AxisStyle = axisStyle
 	c.LabelStyle = labelStyle
 	c.YLabelFormatter = func(_ int, v float64) string {
 		return nbrPrinter.Sprint(yFormat(v))
 	}
 	c.XLabelFormatter = func(_ int, v float64) string { return "" }
+	c.SetStyles(runes.ArcLineStyle, chartStyle)
 	return c
 }
 
