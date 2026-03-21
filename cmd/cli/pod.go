@@ -25,7 +25,6 @@ type podModel struct {
 	ns                 string
 	podName            string
 	apiReader          client.Reader
-	pod                *corev1.Pod
 	selectedContainers []corev1.Container
 	chartGroups        map[string]ChartGroup
 	cpuMax             map[string]float64
@@ -178,7 +177,6 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		ns:                 ns,
 		podName:            podName,
 		apiReader:          apiReader,
-		pod:                pod,
 		selectedContainers: selectedContainers,
 		chartGroups:        make(map[string]ChartGroup),
 		cpuMax:             make(map[string]float64),
