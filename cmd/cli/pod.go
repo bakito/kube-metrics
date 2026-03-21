@@ -75,11 +75,19 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		chartWidth := (m.width - 2) / 2
-		chartHeight := m.height - 6
-		if len(m.selectedContainers) > 0 {
-			chartHeight /= len(m.selectedContainers)
+		cols := 1
+		if len(m.selectedContainers) > 2 {
+			cols = 2
 		}
+		rowsCount := (len(m.selectedContainers) + cols - 1) / cols
+
+		widthPerGroup := m.width / cols
+		chartWidth := (widthPerGroup - 2) / 2
+		chartHeight := (m.height - 3) / rowsCount - 3
+		if chartHeight < 2 {
+			chartHeight = 2
+		}
+
 		for _, c := range m.selectedContainers {
 			group := m.chartGroups[c.Name]
 			group.Resize(chartWidth, chartHeight)
@@ -120,7 +128,14 @@ func (m podModel) View() tea.View {
 
 	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
 
+	cols := 1
+	if len(m.selectedContainers) > 2 {
+		cols = 2
+	}
+	widthPerGroup := m.width / cols
+
 	var rows []string
+	var currentRow []string
 	for i, container := range m.selectedContainers {
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
@@ -142,7 +157,12 @@ func (m podModel) View() tea.View {
 		)
 
 		group := m.chartGroups[n]
-		rows = append(rows, group.Render(m.width, color, cpuTitle, memTitle))
+		currentRow = append(currentRow, group.Render(widthPerGroup, color, cpuTitle, memTitle))
+
+		if len(currentRow) == cols || i == len(m.selectedContainers)-1 {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
+			currentRow = nil
+		}
 	}
 
 	v := tea.NewView(header + joinVertical(rows...))

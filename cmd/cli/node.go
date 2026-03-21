@@ -68,7 +68,7 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.chartGroup.Resize((m.width-2)/2, m.height-4)
+		m.chartGroup.Resize((m.width-2)/2, m.height-6)
 	case tickMsg:
 		cpu, mem, err := getNodeMetrics(context.Background(), m.apiReader, m.nodeName)
 		if err != nil {
