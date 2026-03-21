@@ -17,6 +17,20 @@ var (
 	cpuFormat = func(v float64) string {
 		return fmt.Sprintf("%.2f", v)
 	}
+
+	containerColors = []string{
+		"5", // Magenta
+		"6", // Cyan
+		"3", // Yellow
+		"1", // Red
+		"4", // Blue
+		"2", // Green
+	}
+
+	cpuStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
+	memStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
+	axisStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))   // Gray
+	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))   // White
 )
 
 type tickMsg time.Time
@@ -53,4 +67,43 @@ func newStreamlineChart(
 	}
 	c.XLabelFormatter = func(_ int, v float64) string { return "" }
 	return c
+}
+
+// ChartGroup encapsulates a pair of CPU and Memory charts.
+type ChartGroup struct {
+	CPU streamlinechart.Model
+	Mem streamlinechart.Model
+}
+
+func NewChartGroup(nbrPrinter *message.Printer) ChartGroup {
+	return ChartGroup{
+		CPU: newStreamlineChart(nbrPrinter, cpuStyle, axisStyle, labelStyle, cpuFormat),
+		Mem: newStreamlineChart(nbrPrinter, memStyle, axisStyle, labelStyle, memFormat),
+	}
+}
+
+func (g *ChartGroup) Resize(width, height int) {
+	g.CPU.Resize(width, height)
+	g.Mem.Resize(width, height)
+}
+
+func (g *ChartGroup) Push(cpu, mem float64) {
+	g.CPU.Push(cpu)
+	g.Mem.Push(mem)
+}
+
+func (g *ChartGroup) DrawAll() {
+	g.CPU.DrawAll()
+	g.Mem.DrawAll()
+}
+
+func (g *ChartGroup) Render(width int, color string, cpuTitle, memTitle string) string {
+	chartWidth := (width - 2) / 2
+	style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).MaxWidth(chartWidth)
+
+	cpuView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(cpuTitle), g.CPU.View())
+	memView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(memTitle), g.Mem.View())
+
+	return style.Render(lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
 }

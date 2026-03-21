@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/message"
@@ -22,8 +21,7 @@ type nodeModel struct {
 	nodeName   string
 	apiReader  client.Reader
 	node       *corev1.Node
-	cpuChart   streamlinechart.Model
-	memChart   streamlinechart.Model
+	chartGroup ChartGroup
 	cpuMax     float64
 	memMax     float64
 	cpuCurr    float64
@@ -70,9 +68,7 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		chartWidth := (m.width - 2) / 2
-		m.cpuChart.Resize(chartWidth, m.height-4)
-		m.memChart.Resize(chartWidth, m.height-4)
+		m.chartGroup.Resize((m.width-2)/2, m.height-4)
 	case tickMsg:
 		cpu, mem, err := getNodeMetrics(context.Background(), m.apiReader, m.nodeName)
 		if err != nil {
@@ -85,11 +81,8 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cpuCurr = cpu
 		m.memCurr = mem
 
-		m.cpuChart.Push(cpu)
-		m.memChart.Push(mem)
-
-		m.cpuChart.DrawAll()
-		m.memChart.DrawAll()
+		m.chartGroup.Push(cpu, mem)
+		m.chartGroup.DrawAll()
 
 		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
 			return tickMsg(t)
@@ -114,30 +107,23 @@ func (m nodeModel) View() tea.View {
 		m.node.Status.NodeInfo.OSImage,
 	)
 
-	chartWidth := (m.width - 2) / 2
-	cpuTitle := titleStyle.Render(fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
+	cpuTitle := fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
 		nodeName,
 		m.node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
 		m.node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr*1000),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuMax*1000),
-	))
-	cpuTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(cpuTitle)
+	)
 
-	memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
+	memTitle := fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
 		nodeName,
 		m.node.Status.Capacity.Memory().ScaledValue(resource.Giga),
 		m.node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
-		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr),
-		m.nbrPrinter.Sprintf("%.1fGi", m.memMax),
-	))
-	memTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(memTitle)
+		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr/1024),
+		m.nbrPrinter.Sprintf("%.1fGi", m.memMax/1024),
+	)
 
-	cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuChart.View())
-	memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memChart.View())
-
-	style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(nodeColor))
-	charts := style.Render(lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
+	charts := m.chartGroup.Render(m.width, nodeColor, cpuTitle, memTitle)
 
 	v := tea.NewView(header + charts)
 	v.AltScreen = true
@@ -163,15 +149,8 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 		node:       node,
 		interval:   interval,
 		nbrPrinter: numberPrinter(),
+		chartGroup: NewChartGroup(numberPrinter()),
 	}
-
-	cpuStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
-	memStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
-	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
-
-	m.cpuChart = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle, cpuFormat)
-	m.memChart = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle, memFormat)
 
 	p := tea.NewProgram(m)
 	_, err = p.Run()
@@ -189,6 +168,6 @@ func getNodeMetrics(ctx context.Context, apiReader client.Reader, nodeName strin
 	return float64(
 			metrics.Usage.Cpu().MilliValue(),
 		) / 1000, float64(
-			metrics.Usage.Memory().ScaledValue(resource.Mega),
-		) / 1024, nil
+			metrics.Usage.Memory().Value(),
+		) / (1024 * 1024), nil
 }

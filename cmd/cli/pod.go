@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/message"
@@ -28,8 +27,7 @@ type podModel struct {
 	apiReader          client.Reader
 	pod                *corev1.Pod
 	selectedContainers []corev1.Container
-	cpuCharts          map[string]streamlinechart.Model
-	memCharts          map[string]streamlinechart.Model
+	chartGroups        map[string]ChartGroup
 	cpuMax             map[string]float64
 	memMax             map[string]float64
 	cpuCurr            map[string]float64
@@ -60,12 +58,9 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			chartHeight /= len(m.selectedContainers)
 		}
 		for _, c := range m.selectedContainers {
-			cpu := m.cpuCharts[c.Name]
-			cpu.Resize(chartWidth, chartHeight)
-			m.cpuCharts[c.Name] = cpu
-			mem := m.memCharts[c.Name]
-			mem.Resize(chartWidth, chartHeight)
-			m.memCharts[c.Name] = mem
+			group := m.chartGroups[c.Name]
+			group.Resize(chartWidth, chartHeight)
+			m.chartGroups[c.Name] = group
 		}
 	case tickMsg:
 		cpu, mem, err := getPodMetrics(context.Background(), m.apiReader, m.ns, m.podName)
@@ -81,15 +76,10 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cpuCurr[n] = cpu[n]
 			m.memCurr[n] = mem[n]
 
-			cpuChart := m.cpuCharts[n]
-			cpuChart.Push(cpu[n])
-			cpuChart.DrawAll()
-			m.cpuCharts[n] = cpuChart
-
-			memChart := m.memCharts[n]
-			memChart.Push(mem[n])
-			memChart.DrawAll()
-			m.memCharts[n] = memChart
+			group := m.chartGroups[n]
+			group.Push(cpu[n], mem[n])
+			group.DrawAll()
+			m.chartGroups[n] = group
 		}
 
 		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
@@ -108,50 +98,37 @@ func (m podModel) View() tea.View {
 	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n Press q to quit\n\n", m.ns, m.podName)
 
 	var rows []string
-	chartWidth := (m.width - 2) / 2
 	for i, container := range m.selectedContainers {
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
-		style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color))
-		titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 
-		cpuTitle := titleStyle.Render(fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		cpuTitle := fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Name,
 			container.Resources.Requests.Cpu(),
 			container.Resources.Limits.Cpu(),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
-		))
-		cpuTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(cpuTitle)
+		)
 
-		memTitle := titleStyle.Render(fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		memTitle := fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Name,
 			container.Resources.Requests.Memory(),
 			container.Resources.Limits.Memory(),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n]),
-		))
-		memTitle = lipgloss.NewStyle().MaxWidth(chartWidth).Render(memTitle)
+		)
 
-		cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, m.cpuCharts[n].View())
-		memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, m.memCharts[n].View())
-
-		row := lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView)
-		rows = append(rows, style.Render(row))
+		group := m.chartGroups[n]
+		rows = append(rows, group.Render(m.width, color, cpuTitle, memTitle))
 	}
 
-	v := tea.NewView(header + lipgloss.JoinVertical(lipgloss.Left, rows...))
+	v := tea.NewView(header + joinVertical(rows...))
 	v.AltScreen = true
 	return v
 }
 
-var containerColors = []string{
-	"5", // Magenta
-	"6", // Cyan
-	"3", // Yellow
-	"1", // Red
-	"4", // Blue
-	"2", // Green
+func joinVertical(rows ...string) string {
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
@@ -180,8 +157,7 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		apiReader:          apiReader,
 		pod:                pod,
 		selectedContainers: selectedContainers,
-		cpuCharts:          make(map[string]streamlinechart.Model),
-		memCharts:          make(map[string]streamlinechart.Model),
+		chartGroups:        make(map[string]ChartGroup),
 		cpuMax:             make(map[string]float64),
 		memMax:             make(map[string]float64),
 		cpuCurr:            make(map[string]float64),
@@ -190,14 +166,8 @@ func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.Di
 		nbrPrinter:         numberPrinter(),
 	}
 
-	cpuStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
-	memStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
-	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // White
-
 	for _, c := range selectedContainers {
-		m.cpuCharts[c.Name] = newStreamlineChart(m.nbrPrinter, cpuStyle, axisStyle, labelStyle, cpuFormat)
-		m.memCharts[c.Name] = newStreamlineChart(m.nbrPrinter, memStyle, axisStyle, labelStyle, memFormat)
+		m.chartGroups[c.Name] = NewChartGroup(m.nbrPrinter)
 	}
 
 	p := tea.NewProgram(m)
