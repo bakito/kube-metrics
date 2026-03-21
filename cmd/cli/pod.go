@@ -145,22 +145,18 @@ func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m podModel) getCols() int {
-	if m.isFocused {
-		return 1
-	}
-	if len(m.selectedContainers) > 2 {
-		return 2
-	}
 	return 1
 }
 
 func (m podModel) recalculateSizes() podModel {
-	cols := m.getCols()
-	rowsCount := (len(m.selectedContainers) + cols - 1) / cols
+	rowsCount := len(m.selectedContainers)
+	if m.isFocused {
+		rowsCount = 1
+	}
 
-	widthPerGroup := m.width / cols
+	widthPerGroup := m.width
 	chartWidth := (widthPerGroup - 2) / 2
-	chartHeight := (m.height - 3) / rowsCount - 3
+	chartHeight := (m.height-3)/rowsCount - 3
 
 	if m.isFocused {
 		chartHeight = m.height - 6
@@ -211,8 +207,7 @@ func (m podModel) View() tea.View {
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
 		)
 
-		memTitle := fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
-			container.Name,
+		memTitle := fmt.Sprintf("Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Resources.Requests.Memory(),
 			container.Resources.Limits.Memory(),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
