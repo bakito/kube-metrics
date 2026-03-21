@@ -33,6 +33,17 @@ var (
 	memStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue
 	axisStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
 	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))  // White
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("1")).
+			Bold(true).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("1"))
+
+	optionStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("6")).
+			Italic(true)
 )
 
 type tickMsg time.Time
@@ -45,8 +56,24 @@ func handleKeyMsg(msg tea.KeyMsg, m tea.Model) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func renderError(err error) tea.View {
-	return tea.NewView(fmt.Sprintf("Error: %v\n", err))
+func renderError(err error, options ...string) tea.View {
+	var sb strings.Builder
+	sb.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", err)))
+
+	if len(options) > 0 {
+		sb.WriteString("\n\n")
+		sb.WriteString(lipgloss.NewStyle().Bold(true).Render("Available options:"))
+		sb.WriteString("\n")
+		for _, opt := range options {
+			sb.WriteString(fmt.Sprintf("  - %s\n", optionStyle.Render(opt)))
+		}
+	}
+
+	sb.WriteString("\nPress 'q' to quit")
+
+	v := tea.NewView(sb.String())
+	v.AltScreen = true
+	return v
 }
 
 func newStreamlineChart(
