@@ -39,6 +39,30 @@ type podModel struct {
 	nbrPrinter         *message.Printer
 }
 
+func podCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pod <pod-name>",
+		Short: "Live pod metrics",
+		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, dc, ns, err := newClient()
+			if err != nil {
+				return err
+			}
+
+			return runPodMetrics(ns, args[0], c, dc)
+		},
+	}
+}
+
+func init() {
+	cmd := podCmd()
+	rootCmd.AddCommand(cmd)
+
+	cmd.PersistentFlags().StringVar(&containerName, "container", "", "A container name to show")
+	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
+}
+
 func (m podModel) Init() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
@@ -132,13 +156,12 @@ func joinVertical(rows ...string) string {
 }
 
 func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
-	// Verify that metrics resource is available
+	// Verify that a metrics resource is available
 	if err := verifyMetricsAvailable(dc, "pods"); err != nil {
 		return fmt.Errorf("metrics server is not available: %w", err)
 	}
 
 	ctx := context.Background()
-
 	pod := &corev1.Pod{}
 	err := apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
 	if err != nil {
@@ -203,28 +226,4 @@ func selectContainers(containers []corev1.Container) []corev1.Container {
 		}
 	}
 	return filtered
-}
-
-func podCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "pod <pod-name>",
-		Short: "Live pod metrics",
-		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
-		RunE: func(_ *cobra.Command, args []string) error {
-			c, dc, ns, err := newClient()
-			if err != nil {
-				return err
-			}
-
-			return runPodMetrics(ns, args[0], c, dc)
-		},
-	}
-}
-
-func init() {
-	cmd := podCmd()
-	rootCmd.AddCommand(cmd)
-
-	cmd.PersistentFlags().StringVar(&containerName, "container", "", "A container name to show")
-	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
 }

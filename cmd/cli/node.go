@@ -131,7 +131,7 @@ func (m nodeModel) View() tea.View {
 }
 
 func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
-	// Verify that metrics resource is available
+	// Verify that a metrics resource is available
 	if err := verifyMetricsAvailable(dc, "nodes"); err != nil {
 		return fmt.Errorf("metrics server is not available: %w", err)
 	}
