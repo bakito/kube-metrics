@@ -107,23 +107,21 @@ func (m nodeModel) View() tea.View {
 		m.node.Status.NodeInfo.OSImage,
 	)
 
-	cpuTitle := fmt.Sprintf(" %s CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
-		nodeName,
+	cpuTitle := fmt.Sprintf(" CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
 		m.node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
 		m.node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr*1000),
 		m.nbrPrinter.Sprintf("%.0fm", m.cpuMax*1000),
 	)
 
-	memTitle := fmt.Sprintf(" %s Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
-		nodeName,
+	memTitle := fmt.Sprintf(" Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
 		m.node.Status.Capacity.Memory().ScaledValue(resource.Giga),
 		m.node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
 		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr/1024),
 		m.nbrPrinter.Sprintf("%.1fGi", m.memMax/1024),
 	)
 
-	charts := m.chartGroup.Render(m.width, nodeColor, cpuTitle, memTitle, false)
+	charts := m.chartGroup.Render(m.width, nodeColor, nodeName, cpuTitle, memTitle, false)
 
 	v := tea.NewView(header + charts)
 	v.AltScreen = true

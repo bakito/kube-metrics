@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -28,10 +29,10 @@ var (
 		"2", // Green
 	}
 
-	cpuStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
-	memStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))  // Blue
-	axisStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))   // Gray
-	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))   // White
+	cpuStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))  // Green
+	memStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue
+	axisStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
+	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))  // White
 )
 
 type tickMsg time.Time
@@ -98,17 +99,63 @@ func (g *ChartGroup) DrawAll() {
 	g.Mem.DrawAll()
 }
 
-func (g *ChartGroup) Render(width int, color string, cpuTitle, memTitle string, selected bool) string {
+func (g *ChartGroup) Render(width int, color, groupTitle, cpuTitle, memTitle string, selected bool) string {
 	chartWidth := (width - 2) / 2
-	borderStyle := lipgloss.RoundedBorder()
+	border := lipgloss.RoundedBorder()
 	if selected {
-		borderStyle = lipgloss.ThickBorder()
+		border = lipgloss.ThickBorder()
 	}
-	style := lipgloss.NewStyle().Border(borderStyle).BorderForeground(lipgloss.Color(color))
+
+	style := lipgloss.NewStyle().
+		Border(border).
+		BorderForeground(lipgloss.Color(color))
+
 	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).MaxWidth(chartWidth)
 
 	cpuView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(cpuTitle), g.CPU.View())
 	memView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(memTitle), g.Mem.View())
 
-	return style.Render(lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView))
+	content := lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView)
+	rendered := style.Render(content)
+
+	if groupTitle != "" {
+		lines := strings.Split(rendered, "\n")
+		if len(lines) > 0 {
+			// Construct titled top border
+			t := " " + groupTitle + " "
+			borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+			if selected {
+				borderStyle = borderStyle.Bold(true)
+			}
+
+			topLeft := borderStyle.Render(border.TopLeft)
+			topRight := borderStyle.Render(border.TopRight)
+			topChar := borderStyle.Render(border.Top)
+
+			// Total width of the rendered content with borders
+			totalWidth := lipgloss.Width(lines[0])
+
+			// We want: [TopLeft][Top][ Title ][Top...][TopRight]
+			// The content width is totalWidth - 2 (for the corners)
+
+			titleRendered := borderStyle.Render(t)
+			titleWidth := lipgloss.Width(titleRendered)
+
+			if totalWidth > titleWidth+4 {
+				prefix := topLeft + topChar
+				suffixWidth := totalWidth - lipgloss.Width(prefix) - titleWidth
+				suffix := ""
+				var suffixSb148 strings.Builder
+				for range suffixWidth - 1 {
+					suffixSb148.WriteString(border.Top)
+				}
+				suffix += suffixSb148.String()
+				suffix = borderStyle.Render(suffix) + topRight
+				lines[0] = prefix + titleRendered + suffix
+			}
+		}
+		rendered = strings.Join(lines, "\n")
+	}
+
+	return rendered
 }

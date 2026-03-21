@@ -199,15 +199,14 @@ func (m podModel) View() tea.View {
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
 
-		cpuTitle := fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
-			container.Name,
+		cpuTitle := fmt.Sprintf(" CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Resources.Requests.Cpu(),
 			container.Resources.Limits.Cpu(),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
 		)
 
-		memTitle := fmt.Sprintf("Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		memTitle := fmt.Sprintf(" Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Resources.Requests.Memory(),
 			container.Resources.Limits.Memory(),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
@@ -215,7 +214,7 @@ func (m podModel) View() tea.View {
 		)
 
 		group := m.chartGroups[n]
-		view := group.Render(widthPerGroup, color, cpuTitle, memTitle, i == m.selectedIndex)
+		view := group.Render(widthPerGroup, color, n, cpuTitle, memTitle, i == m.selectedIndex)
 		currentRow = append(currentRow, view)
 
 		if len(currentRow) == cols || i == len(m.selectedContainers)-1 {
