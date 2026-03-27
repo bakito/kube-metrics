@@ -93,7 +93,7 @@ func verifyMetricsAvailable(dc *discovery.DiscoveryClient, resourceName string) 
 
 	for _, group := range apiGroups.Groups {
 		if group.Name == metricsv1beta1.GroupName {
-			// Check if the PodMetrics resource is available
+			// Check if the resource is available
 			resources, err := dc.ServerResourcesForGroupVersion(metricsv1beta1.SchemeGroupVersion.String())
 			if err != nil {
 				return fmt.Errorf("failed to get %s resources: %w", metricsv1beta1.SchemeGroupVersion.String(), err)
