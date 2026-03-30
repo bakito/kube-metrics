@@ -110,7 +110,7 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 			case "q", "<C-c>":
 				return nil
 			case "<Resize>":
-				payload := e.Payload.(ui.Resize) //nolint:revive,forcetypeassert
+				payload := e.Payload.(ui.Resize)
 				cpuData, memData, title, cpuPlots, memPlots = buildNodeGraphs(node, headerHeight, payload.Width, payload.Height)
 				ui.Clear()
 				draw()
