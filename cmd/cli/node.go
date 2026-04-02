@@ -18,34 +18,39 @@ import (
 )
 
 type nodeModel struct {
-	nodeName         string
 	apiReader        client.Reader
-	node             *corev1.Node
-	chartGroup       ChartGroup
-	cpuMax           float64
-	memMax           float64
-	cpuCurr          float64
-	memCurr          float64
+	selectedNodes    []corev1.Node
+	chartGroups      map[string]ChartGroup
+	cpuMax           map[string]float64
+	memMax           map[string]float64
+	cpuCurr          map[string]float64
+	memCurr          map[string]float64
 	err              error
 	availableOptions []string
 	width            int
 	height           int
 	interval         time.Duration
 	nbrPrinter       *message.Printer
+	selectedIndex    int
+	isFocused        bool
 }
 
 func nodesCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "node <node-name>",
-		Short: "Live node usage <node-name>",
-		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
+		Use:   "node [<node-name>]",
+		Short: "Live node usage [<node-name>]",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			nodeName := ""
+			if len(args) > 0 {
+				nodeName = args[0]
+			}
 			c, dc, _, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			return runNodeMetrics(args[0], c, dc)
+			return runNodeMetrics(nodeName, c, dc)
 		},
 	}
 }
@@ -68,29 +73,85 @@ func (m nodeModel) Init() tea.Cmd {
 func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return handleKeyMsg(msg, m)
+		switch msg.String() {
+		case "q", "ctrl+c":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+			return m, tea.Quit
+		case "enter":
+			if m.err != nil {
+				return m, nil
+			}
+			m.isFocused = !m.isFocused
+			m = m.recalculateSizes()
+			return m, nil
+		case "esc", "backspace":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+		case "up", "k":
+			if m.err != nil {
+				return m, nil
+			}
+			cols := m.getCols()
+			if m.selectedIndex-cols >= 0 {
+				m.selectedIndex -= cols
+			}
+		case "down", "j":
+			if m.err != nil {
+				return m, nil
+			}
+			cols := m.getCols()
+			if m.selectedIndex+cols < len(m.selectedNodes) {
+				m.selectedIndex += cols
+			}
+		case "left", "h":
+			if m.err != nil {
+				return m, nil
+			}
+			if m.selectedIndex > 0 {
+				m.selectedIndex--
+			}
+		case "right", "l":
+			if m.err != nil {
+				return m, nil
+			}
+			if m.selectedIndex < len(m.selectedNodes)-1 {
+				m.selectedIndex++
+			}
+		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.chartGroup.Resize((m.width-2)/2, m.height-6)
+		m = m.recalculateSizes()
 	case tickMsg:
 		if m.err != nil {
 			return m, nil
 		}
 
-		cpu, mem, err := getNodeMetrics(context.Background(), m.apiReader, m.nodeName)
+		cpu, mem, err := getNodesMetrics(context.Background(), m.apiReader, "")
 		if err != nil {
 			m.err = err
 			return m, nil
 		}
 
-		m.cpuMax = math.Max(m.cpuMax, cpu)
-		m.memMax = math.Max(m.memMax, mem)
-		m.cpuCurr = cpu
-		m.memCurr = mem
+		for _, n := range m.selectedNodes {
+			name := n.Name
+			m.cpuMax[name] = math.Max(m.cpuMax[name], cpu[name])
+			m.memMax[name] = math.Max(m.memMax[name], mem[name])
+			m.cpuCurr[name] = cpu[name]
+			m.memCurr[name] = mem[name]
 
-		m.chartGroup.Push(cpu, mem)
-		m.chartGroup.DrawAll()
+			group := m.chartGroups[name]
+			group.Push(cpu[name], mem[name])
+			group.DrawAll()
+			m.chartGroups[name] = group
+		}
 
 		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
 			return tickMsg(t)
@@ -100,38 +161,89 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m nodeModel) getCols() int {
+	return 1
+}
+
+func (m nodeModel) recalculateSizes() nodeModel {
+	if m.err != nil {
+		return m
+	}
+	rowsCount := len(m.selectedNodes)
+	if m.isFocused {
+		rowsCount = 1
+	}
+
+	widthPerGroup := m.width
+	chartWidth := (widthPerGroup - 2) / 2
+	chartHeight := (m.height-3)/rowsCount - 3
+
+	if m.isFocused {
+		chartHeight = m.height - 6
+	}
+
+	if chartHeight < 2 {
+		chartHeight = 2
+	}
+
+	for _, n := range m.selectedNodes {
+		group := m.chartGroups[n.Name]
+		group.Resize(chartWidth, chartHeight)
+		m.chartGroups[n.Name] = group
+	}
+	return m
+}
+
 func (m nodeModel) View() tea.View {
 	if m.err != nil {
 		return renderError(m.err, m.availableOptions...)
 	}
 
-	nodeName := m.node.GetName()
-	nodeColor := containerColors[0] // Magenta
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(nodeColor)).Bold(true)
+	help := "Press enter to focus, arrows to navigate, q to quit"
+	if m.isFocused {
+		help = "Press enter/esc to go back, q to quit"
+	}
 
-	header := fmt.Sprintf(" Node: %s / %s / %s \n Press q to quit\n\n",
-		titleStyle.Render(nodeName),
-		m.node.Status.NodeInfo.KubeletVersion,
-		m.node.Status.NodeInfo.OSImage,
-	)
+	header := fmt.Sprintf(" Nodes: %s\n\n", help)
 
-	cpuTitle := fmt.Sprintf(" CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
-		m.node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
-		m.node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
-		m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr*1000),
-		m.nbrPrinter.Sprintf("%.0fm", m.cpuMax*1000),
-	)
+	cols := m.getCols()
+	widthPerGroup := m.width / cols
 
-	memTitle := fmt.Sprintf(" Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
-		m.node.Status.Capacity.Memory().ScaledValue(resource.Giga),
-		m.node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
-		m.nbrPrinter.Sprintf("%.1fGi", m.memCurr/1024),
-		m.nbrPrinter.Sprintf("%.1fGi", m.memMax/1024),
-	)
+	var rows []string
+	var currentRow []string
+	for i, node := range m.selectedNodes {
+		if m.isFocused && i != m.selectedIndex {
+			continue
+		}
 
-	charts := m.chartGroup.Render(m.width, nodeColor, nodeName, cpuTitle, memTitle, false)
+		nodeName := node.Name
+		color := containerColors[i%len(containerColors)]
 
-	v := tea.NewView(header + charts)
+		cpuTitle := fmt.Sprintf(" CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
+			node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
+			node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
+			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[nodeName]*1000),
+			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[nodeName]*1000),
+		)
+
+		memTitle := fmt.Sprintf(" Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
+			node.Status.Capacity.Memory().ScaledValue(resource.Giga),
+			node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
+			m.nbrPrinter.Sprintf("%.1fGi", m.memCurr[nodeName]/1024),
+			m.nbrPrinter.Sprintf("%.1fGi", m.memMax[nodeName]/1024),
+		)
+
+		group := m.chartGroups[nodeName]
+		view := group.Render(widthPerGroup, color, nodeName, cpuTitle, memTitle, i == m.selectedIndex)
+		currentRow = append(currentRow, view)
+
+		if len(currentRow) == cols || i == len(m.selectedNodes)-1 {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
+			currentRow = nil
+		}
+	}
+
+	v := tea.NewView(header + joinVertical(rows...))
 	v.AltScreen = true
 	return v
 }
@@ -143,28 +255,49 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 	}
 
 	ctx := context.Background()
-	node := &corev1.Node{}
-	err := apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, node)
-
+	var selectedNodes []corev1.Node
+	var err error
 	var availableOptions []string
-	if err != nil && isNotFound(err) {
-		nodeList := &corev1.NodeList{}
-		if listErr := apiReader.List(ctx, nodeList); listErr == nil {
-			for _, n := range nodeList.Items {
-				availableOptions = append(availableOptions, n.Name)
+
+	if nodeName != "" {
+		node := &corev1.Node{}
+		err = apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+		if err == nil {
+			selectedNodes = append(selectedNodes, *node)
+		} else if isNotFound(err) {
+			nodeList := &corev1.NodeList{}
+			if listErr := apiReader.List(ctx, nodeList); listErr == nil {
+				for _, n := range nodeList.Items {
+					availableOptions = append(availableOptions, n.Name)
+				}
 			}
+		}
+	} else {
+		nodeList := &corev1.NodeList{}
+		err = apiReader.List(ctx, nodeList)
+		if err == nil {
+			selectedNodes = nodeList.Items
 		}
 	}
 
 	m := nodeModel{
-		nodeName:         nodeName,
 		apiReader:        apiReader,
-		node:             node,
+		selectedNodes:    selectedNodes,
+		chartGroups:      make(map[string]ChartGroup),
+		cpuMax:           make(map[string]float64),
+		memMax:           make(map[string]float64),
+		cpuCurr:          make(map[string]float64),
+		memCurr:          make(map[string]float64),
 		interval:         interval,
 		nbrPrinter:       numberPrinter(),
-		chartGroup:       NewChartGroup(numberPrinter()),
 		err:              err,
 		availableOptions: availableOptions,
+	}
+
+	if err == nil {
+		for _, n := range selectedNodes {
+			m.chartGroups[n.Name] = NewChartGroup(m.nbrPrinter)
+		}
 	}
 
 	p := tea.NewProgram(m)
@@ -172,17 +305,29 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 	return err
 }
 
-func getNodeMetrics(ctx context.Context, apiReader client.Reader, nodeName string) (
-	cpu, mem float64, err error,
+func getNodesMetrics(ctx context.Context, apiReader client.Reader, nodeName string) (
+	cpu, mem map[string]float64, err error,
 ) {
-	metrics := &metricsv1beta1.NodeMetrics{}
-	err = apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, metrics)
-	if err != nil {
-		return 0, 0, err
+	cpu = make(map[string]float64)
+	mem = make(map[string]float64)
+	if nodeName != "" {
+		metrics := &metricsv1beta1.NodeMetrics{}
+		err = apiReader.Get(ctx, client.ObjectKey{Name: nodeName}, metrics)
+		if err != nil {
+			return nil, nil, err
+		}
+		cpu[nodeName] = float64(metrics.Usage.Cpu().MilliValue()) / 1000
+		mem[nodeName] = float64(metrics.Usage.Memory().Value()) / (1024 * 1024)
+	} else {
+		metricsList := &metricsv1beta1.NodeMetricsList{}
+		err = apiReader.List(ctx, metricsList)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, m := range metricsList.Items {
+			cpu[m.Name] = float64(m.Usage.Cpu().MilliValue()) / 1000
+			mem[m.Name] = float64(m.Usage.Memory().Value()) / (1024 * 1024)
+		}
 	}
-	return float64(
-			metrics.Usage.Cpu().MilliValue(),
-		) / 1000, float64(
-			metrics.Usage.Memory().Value(),
-		) / (1024 * 1024), nil
+	return cpu, mem, nil
 }

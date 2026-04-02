@@ -49,14 +49,6 @@ var (
 
 type tickMsg time.Time
 
-func handleKeyMsg(msg tea.KeyMsg, m tea.Model) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
-		return m, tea.Quit
-	}
-	return m, nil
-}
-
 func renderError(err error, options ...string) tea.View {
 	var sb strings.Builder
 	sb.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", err)))
@@ -79,6 +71,10 @@ func renderError(err error, options ...string) tea.View {
 
 func isNotFound(err error) bool {
 	return apierrors.IsNotFound(err)
+}
+
+func joinVertical(rows ...string) string {
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 func newStreamlineChart(

@@ -266,10 +266,6 @@ func (m podModel) View() tea.View {
 	return v
 }
 
-func joinVertical(rows ...string) string {
-	return lipgloss.JoinVertical(lipgloss.Left, rows...)
-}
-
 func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
 	// Verify that a metrics resource is available
 	if err := verifyMetricsAvailable(dc, "pods"); err != nil {
