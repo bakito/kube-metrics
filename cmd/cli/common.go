@@ -90,10 +90,20 @@ func RenderInfoBox(nbrPrinter *message.Printer, title, color string, stats [][2]
 	sb.WriteString("\n")
 
 	for i := 0; i < len(stats); i += 2 {
-		sb.WriteString(fmt.Sprintf("%s: %s", stats[i][0], contentStyle.Render(stats[i][1])))
+		// First column
+		labelWidth := 10
+		leftLabel := lipgloss.PlaceHorizontal(labelWidth, lipgloss.Left, stats[i][0])
+		leftValue := contentStyle.Render(stats[i][1])
+		leftStat := fmt.Sprintf("%s: %s", leftLabel, leftValue)
+		// Pad the entire first column entry to ensure the second column is aligned
+		sb.WriteString(lipgloss.PlaceHorizontal(25, lipgloss.Left, leftStat))
+
 		if i+1 < len(stats) {
 			sb.WriteString("  ")
-			sb.WriteString(fmt.Sprintf("%s: %s", stats[i+1][0], contentStyle.Render(stats[i+1][1])))
+			// Second column
+			rightLabel := lipgloss.PlaceHorizontal(labelWidth, lipgloss.Left, stats[i+1][0])
+			rightValue := contentStyle.Render(stats[i+1][1])
+			sb.WriteString(fmt.Sprintf("%s: %s", rightLabel, rightValue))
 		}
 		sb.WriteString("\n")
 	}

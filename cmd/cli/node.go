@@ -255,18 +255,18 @@ func (m nodeModel) View() tea.View {
 			memReqPerc,
 		)
 
-		cpuTitle := RenderInfoBox(m.nbrPrinter, "CPU", color, [][2]string{
-			{"Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[nodeName]*1000)},
-			{"Req ", m.nbrPrinter.Sprintf("%.0fm", m.cpuReq[nodeName]*1000)},
-			{"Max ", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[nodeName]*1000)},
-			{"Alloc", m.nbrPrinter.Sprintf("%.0fm", cpuAll*1000)},
+		cpuTitle := RenderInfoBox(m.nbrPrinter, "🤖 CPU", color, [][2]string{
+			{"📈 Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[nodeName]*1000)},
+			{"📋 Req", m.nbrPrinter.Sprintf("%.0fm", m.cpuReq[nodeName]*1000)},
+			{"🚀 Max", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[nodeName]*1000)},
+			{"📦 Alloc", m.nbrPrinter.Sprintf("%.0fm", cpuAll*1000)},
 		})
 
-		memTitle := RenderInfoBox(m.nbrPrinter, "Memory", color, [][2]string{
-			{"Used", m.nbrPrinter.Sprintf("%.1fGi", m.memCurr[nodeName]/1024)},
-			{"Req ", m.nbrPrinter.Sprintf("%.1fGi", m.memReq[nodeName]/1024)},
-			{"Max ", m.nbrPrinter.Sprintf("%.1fGi", m.memMax[nodeName]/1024)},
-			{"Alloc", m.nbrPrinter.Sprintf("%.1fGi", memAll/1024)},
+		memTitle := RenderInfoBox(m.nbrPrinter, "🧠 Memory", color, [][2]string{
+			{"📈 Used", m.nbrPrinter.Sprintf("%.1fGi", m.memCurr[nodeName]/1024)},
+			{"📋 Req", m.nbrPrinter.Sprintf("%.1fGi", m.memReq[nodeName]/1024)},
+			{"🚀 Max", m.nbrPrinter.Sprintf("%.1fGi", m.memMax[nodeName]/1024)},
+			{"📦 Alloc", m.nbrPrinter.Sprintf("%.1fGi", memAll/1024)},
 		})
 
 		group := m.chartGroups[nodeName]

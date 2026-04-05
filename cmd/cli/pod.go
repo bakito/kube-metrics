@@ -267,18 +267,18 @@ func (m podModel) View() tea.View {
 			memReqPerc,
 		)
 
-		cpuTitle := RenderInfoBox(m.nbrPrinter, "CPU", color, [][2]string{
-			{"Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000)},
-			{"Req ", container.Resources.Requests.Cpu().String()},
-			{"Max ", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000)},
-			{"Lim ", container.Resources.Limits.Cpu().String()},
+		cpuTitle := RenderInfoBox(m.nbrPrinter, "🤖 CPU", color, [][2]string{
+			{"📈 Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000)},
+			{"📋 Req", container.Resources.Requests.Cpu().String()},
+			{"🚀 Max", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000)},
+			{"🚧 Lim", container.Resources.Limits.Cpu().String()},
 		})
 
-		memTitle := RenderInfoBox(m.nbrPrinter, "Memory", color, [][2]string{
-			{"Used", m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n])},
-			{"Req ", container.Resources.Requests.Memory().String()},
-			{"Max ", m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n])},
-			{"Lim ", container.Resources.Limits.Memory().String()},
+		memTitle := RenderInfoBox(m.nbrPrinter, "🧠 Memory", color, [][2]string{
+			{"📈 Used", m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n])},
+			{"📋 Req", container.Resources.Requests.Memory().String()},
+			{"🚀 Max", m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n])},
+			{"🚧 Lim", container.Resources.Limits.Memory().String()},
 		})
 
 		group := m.chartGroups[n]
