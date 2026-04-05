@@ -128,7 +128,6 @@ func (g *ChartGroup) DrawAll() {
 }
 
 func (g *ChartGroup) Render(width int, color, groupTitle, cpuTitle, memTitle string, selected bool) string {
-	chartWidth := (width - 2) / 2
 	border := lipgloss.RoundedBorder()
 	if selected {
 		border = lipgloss.ThickBorder()
@@ -138,10 +137,8 @@ func (g *ChartGroup) Render(width int, color, groupTitle, cpuTitle, memTitle str
 		Border(border).
 		BorderForeground(lipgloss.Color(color))
 
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).MaxWidth(chartWidth)
-
-	cpuView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(cpuTitle), g.CPU.View())
-	memView := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(memTitle), g.Mem.View())
+	cpuView := lipgloss.JoinVertical(lipgloss.Left, cpuTitle, g.CPU.View())
+	memView := lipgloss.JoinVertical(lipgloss.Left, memTitle, g.Mem.View())
 
 	content := lipgloss.JoinHorizontal(lipgloss.Top, cpuView, memView)
 	rendered := style.Render(content)

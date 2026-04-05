@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/message"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +25,8 @@ type nodeModel struct {
 	memMax           map[string]float64
 	cpuCurr          map[string]float64
 	memCurr          map[string]float64
+	cpuReq           map[string]float64
+	memReq           map[string]float64
 	err              error
 	availableOptions []string
 	width            int
@@ -139,6 +141,11 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = err
 			return m, nil
 		}
+		cpuReq, memReq, err := getNodesRequests(context.Background(), m.apiReader)
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
 
 		for _, n := range m.selectedNodes {
 			name := n.Name
@@ -146,6 +153,8 @@ func (m nodeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.memMax[name] = math.Max(m.memMax[name], mem[name])
 			m.cpuCurr[name] = cpu[name]
 			m.memCurr[name] = mem[name]
+			m.cpuReq[name] = cpuReq[name]
+			m.memReq[name] = memReq[name]
 
 			group := m.chartGroups[name]
 			group.Push(cpu[name], mem[name])
@@ -165,6 +174,34 @@ func (m nodeModel) getCols() int {
 	return 1
 }
 
+func (m nodeModel) renderInfoBox(title string, color string, stats [][2]string) string {
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(color)).
+		Bold(true)
+
+	contentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")) // White
+
+	var sb strings.Builder
+	sb.WriteString(titleStyle.Render(title))
+	sb.WriteString("\n")
+
+	for i := 0; i < len(stats); i += 2 {
+		sb.WriteString(fmt.Sprintf("%s: %s", stats[i][0], contentStyle.Render(stats[i][1])))
+		if i+1 < len(stats) {
+			sb.WriteString("  ")
+			sb.WriteString(fmt.Sprintf("%s: %s", stats[i+1][0], contentStyle.Render(stats[i+1][1])))
+		}
+		sb.WriteString("\n")
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Padding(0, 1).
+		Render(strings.TrimSpace(sb.String()))
+}
+
 func (m nodeModel) recalculateSizes() nodeModel {
 	if m.err != nil {
 		return m
@@ -176,10 +213,10 @@ func (m nodeModel) recalculateSizes() nodeModel {
 
 	widthPerGroup := m.width
 	chartWidth := (widthPerGroup - 2) / 2
-	chartHeight := (m.height-3)/rowsCount - 3
+	chartHeight := (m.height-3)/rowsCount - 6
 
 	if m.isFocused {
-		chartHeight = m.height - 6
+		chartHeight = m.height - 9
 	}
 
 	if chartHeight < 2 {
@@ -219,22 +256,50 @@ func (m nodeModel) View() tea.View {
 		nodeName := node.Name
 		color := containerColors[i%len(containerColors)]
 
-		cpuTitle := fmt.Sprintf(" CPU (Cap: %dm / All: %dm / Curr: %s / Max: %s) ",
-			node.Status.Capacity.Cpu().ScaledValue(resource.Milli),
-			node.Status.Allocatable.Cpu().ScaledValue(resource.Milli),
-			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[nodeName]*1000),
-			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[nodeName]*1000),
+		cpuAll := float64(node.Status.Allocatable.Cpu().MilliValue()) / 1000
+		memAll := float64(node.Status.Allocatable.Memory().Value()) / (1024 * 1024)
+
+		cpuUsedPerc := 0.0
+		if cpuAll > 0 {
+			cpuUsedPerc = m.cpuCurr[nodeName] / cpuAll * 100
+		}
+		cpuReqPerc := 0.0
+		if cpuAll > 0 {
+			cpuReqPerc = m.cpuReq[nodeName] / cpuAll * 100
+		}
+		memUsedPerc := 0.0
+		if memAll > 0 {
+			memUsedPerc = m.memCurr[nodeName] / memAll * 100
+		}
+		memReqPerc := 0.0
+		if memAll > 0 {
+			memReqPerc = m.memReq[nodeName] / memAll * 100
+		}
+
+		nodeTitle := fmt.Sprintf("%s (CPU: %.0f%% / %.0f%% | Mem: %.0f%% / %.0f%%)",
+			nodeName,
+			cpuUsedPerc,
+			cpuReqPerc,
+			memUsedPerc,
+			memReqPerc,
 		)
 
-		memTitle := fmt.Sprintf(" Memory (Cap: %dGi / All: %dGi / Curr: %s / Max: %s) ",
-			node.Status.Capacity.Memory().ScaledValue(resource.Giga),
-			node.Status.Allocatable.Memory().ScaledValue(resource.Giga),
-			m.nbrPrinter.Sprintf("%.1fGi", m.memCurr[nodeName]/1024),
-			m.nbrPrinter.Sprintf("%.1fGi", m.memMax[nodeName]/1024),
-		)
+		cpuTitle := m.renderInfoBox("CPU", color, [][2]string{
+			{"Used ", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[nodeName]*1000)},
+			{"Req  ", m.nbrPrinter.Sprintf("%.0fm", m.cpuReq[nodeName]*1000)},
+			{"Max  ", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[nodeName]*1000)},
+			{"Alloc", m.nbrPrinter.Sprintf("%.0fm", cpuAll*1000)},
+		})
+
+		memTitle := m.renderInfoBox("Memory", color, [][2]string{
+			{"Used ", m.nbrPrinter.Sprintf("%.1fGi", m.memCurr[nodeName]/1024)},
+			{"Req  ", m.nbrPrinter.Sprintf("%.1fGi", m.memReq[nodeName]/1024)},
+			{"Max  ", m.nbrPrinter.Sprintf("%.1fGi", m.memMax[nodeName]/1024)},
+			{"Alloc", m.nbrPrinter.Sprintf("%.1fGi", memAll/1024)},
+		})
 
 		group := m.chartGroups[nodeName]
-		view := group.Render(widthPerGroup, color, nodeName, cpuTitle, memTitle, i == m.selectedIndex)
+		view := group.Render(widthPerGroup, color, nodeTitle, cpuTitle, memTitle, i == m.selectedIndex)
 		currentRow = append(currentRow, view)
 
 		if len(currentRow) == cols || i == len(m.selectedNodes)-1 {
@@ -288,6 +353,8 @@ func runNodeMetrics(nodeName string, apiReader client.Reader, dc *discovery.Disc
 		memMax:           make(map[string]float64),
 		cpuCurr:          make(map[string]float64),
 		memCurr:          make(map[string]float64),
+		cpuReq:           make(map[string]float64),
+		memReq:           make(map[string]float64),
 		interval:         interval,
 		nbrPrinter:       numberPrinter(),
 		err:              err,
@@ -327,6 +394,26 @@ func getNodesMetrics(ctx context.Context, apiReader client.Reader, nodeName stri
 		for _, m := range metricsList.Items {
 			cpu[m.Name] = float64(m.Usage.Cpu().MilliValue()) / 1000
 			mem[m.Name] = float64(m.Usage.Memory().Value()) / (1024 * 1024)
+		}
+	}
+	return cpu, mem, nil
+}
+
+func getNodesRequests(ctx context.Context, apiReader client.Reader) (cpu, mem map[string]float64, err error) {
+	podList := &corev1.PodList{}
+	err = apiReader.List(ctx, podList)
+	if err != nil {
+		return nil, nil, err
+	}
+	cpu = make(map[string]float64)
+	mem = make(map[string]float64)
+	for _, pod := range podList.Items {
+		if pod.Spec.NodeName == "" || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+			continue
+		}
+		for _, container := range pod.Spec.Containers {
+			cpu[pod.Spec.NodeName] += float64(container.Resources.Requests.Cpu().MilliValue()) / 1000
+			mem[pod.Spec.NodeName] += float64(container.Resources.Requests.Memory().Value()) / (1024 * 1024)
 		}
 	}
 	return cpu, mem, nil

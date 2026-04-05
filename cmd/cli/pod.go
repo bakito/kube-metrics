@@ -236,20 +236,22 @@ func (m podModel) View() tea.View {
 
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
+		chartWidth := (widthPerGroup - 2) / 2
+		titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).MaxWidth(chartWidth)
 
-		cpuTitle := fmt.Sprintf(" CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		cpuTitle := titleStyle.Render(fmt.Sprintf(" CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Resources.Requests.Cpu(),
 			container.Resources.Limits.Cpu(),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000),
 			m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000),
-		)
+		))
 
-		memTitle := fmt.Sprintf(" Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
+		memTitle := titleStyle.Render(fmt.Sprintf(" Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
 			container.Resources.Requests.Memory(),
 			container.Resources.Limits.Memory(),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n]),
 			m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n]),
-		)
+		))
 
 		group := m.chartGroups[n]
 		view := group.Render(widthPerGroup, color, n, cpuTitle, memTitle, i == m.selectedIndex)
