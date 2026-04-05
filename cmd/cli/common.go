@@ -77,6 +77,34 @@ func joinVertical(rows ...string) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
+func RenderInfoBox(nbrPrinter *message.Printer, title string, color string, stats [][2]string) string {
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(color)).
+		Bold(true)
+
+	contentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")) // White
+
+	var sb strings.Builder
+	sb.WriteString(titleStyle.Render(title))
+	sb.WriteString("\n")
+
+	for i := 0; i < len(stats); i += 2 {
+		sb.WriteString(fmt.Sprintf("%s: %s", stats[i][0], contentStyle.Render(stats[i][1])))
+		if i+1 < len(stats) {
+			sb.WriteString("  ")
+			sb.WriteString(fmt.Sprintf("%s: %s", stats[i+1][0], contentStyle.Render(stats[i+1][1])))
+		}
+		sb.WriteString("\n")
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Padding(0, 1).
+		Render(strings.TrimSpace(sb.String()))
+}
+
 func newStreamlineChart(
 	nbrPrinter *message.Printer,
 	chartStyle, axisStyle, labelStyle lipgloss.Style,
