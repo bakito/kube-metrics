@@ -19,13 +19,13 @@ TB_SYFT ?= $(TB_LOCALBIN)/syft
 
 ## Tool Versions
 # renovate: packageName=github.com/golangci/golangci-lint/v2
-TB_GOLANGCI_LINT_VERSION ?= v2.11.3
+TB_GOLANGCI_LINT_VERSION ?= v2.11.4
 # renovate: packageName=github.com/goreleaser/goreleaser/v2
-TB_GORELEASER_VERSION ?= v2.14.3
+TB_GORELEASER_VERSION ?= v2.15.0
 # renovate: packageName=github.com/bakito/semver
 TB_SEMVER_VERSION ?= v1.1.10
 # renovate: packageName=github.com/anchore/syft/cmd/syft
-TB_SYFT_VERSION ?= v1.42.2
+TB_SYFT_VERSION ?= v1.42.3
 TB_SYFT_VERSION_NUM ?= $(call STRIP_V,$(TB_SYFT_VERSION))
 
 ## Tool Installer
