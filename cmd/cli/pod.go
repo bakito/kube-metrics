@@ -237,6 +237,36 @@ func (m podModel) View() tea.View {
 		n := container.Name
 		color := containerColors[i%len(containerColors)]
 
+		cpuLim := float64(container.Resources.Limits.Cpu().MilliValue()) / 1000
+		memLim := float64(container.Resources.Limits.Memory().Value()) / (1024 * 1024)
+		cpuReq := float64(container.Resources.Requests.Cpu().MilliValue()) / 1000
+		memReq := float64(container.Resources.Requests.Memory().Value()) / (1024 * 1024)
+
+		cpuUsedPerc := 0.0
+		if cpuLim > 0 {
+			cpuUsedPerc = m.cpuCurr[n] / cpuLim * 100
+		}
+		cpuReqPerc := 0.0
+		if cpuLim > 0 {
+			cpuReqPerc = cpuReq / cpuLim * 100
+		}
+		memUsedPerc := 0.0
+		if memLim > 0 {
+			memUsedPerc = m.memCurr[n] / memLim * 100
+		}
+		memReqPerc := 0.0
+		if memLim > 0 {
+			memReqPerc = memReq / memLim * 100
+		}
+
+		containerTitle := fmt.Sprintf("%s (CPU: %.0f%% / %.0f%% | Mem: %.0f%% / %.0f%%)",
+			n,
+			cpuUsedPerc,
+			cpuReqPerc,
+			memUsedPerc,
+			memReqPerc,
+		)
+
 		cpuTitle := RenderInfoBox(m.nbrPrinter, "CPU", color, [][2]string{
 			{"Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000)},
 			{"Req ", container.Resources.Requests.Cpu().String()},
@@ -252,7 +282,7 @@ func (m podModel) View() tea.View {
 		})
 
 		group := m.chartGroups[n]
-		view := group.Render(widthPerGroup, color, n, cpuTitle, memTitle, i == m.selectedIndex)
+		view := group.Render(widthPerGroup, color, containerTitle, cpuTitle, memTitle, i == m.selectedIndex)
 		currentRow = append(currentRow, view)
 
 		if len(currentRow) == cols || i == len(m.selectedContainers)-1 {

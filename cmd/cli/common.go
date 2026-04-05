@@ -77,7 +77,7 @@ func joinVertical(rows ...string) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-func RenderInfoBox(nbrPrinter *message.Printer, title string, color string, stats [][2]string) string {
+func RenderInfoBox(nbrPrinter *message.Printer, title, color string, stats [][2]string) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(color)).
 		Bold(true)
