@@ -194,10 +194,10 @@ func (m podModel) recalculateSizes() podModel {
 
 	widthPerGroup := m.width
 	chartWidth := (widthPerGroup - 2) / 2
-	chartHeight := (m.height-3)/rowsCount - 6
+	chartHeight := (m.height-5)/rowsCount - 8
 
 	if m.isFocused {
-		chartHeight = m.height - 9
+		chartHeight = m.height - 12
 	}
 
 	if chartHeight < 2 {
