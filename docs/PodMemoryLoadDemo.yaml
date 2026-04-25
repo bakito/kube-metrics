@@ -26,10 +26,11 @@ spec:
           python - <<'PY'
           import time
           import random
+          import hashlib
 
-          print("Starting dynamic memory allocation pattern", flush=True)
+          print("Starting dynamic memory and CPU load pattern", flush=True)
           
-          # Run memory allocation cycles
+          # Run memory allocation and bounded CPU load cycles
           for cycle in range(10):
               # Randomly allocate between 30 MiB and 90 MiB
               allocation_size = random.randint(30, 90)
@@ -39,22 +40,25 @@ spec:
               for i in range(0, len(data), 4096):
                   data[i] = 1
           
-              print(f"Cycle {cycle + 1}: Allocated ~{allocation_size} MiB for 10 seconds", flush=True)
-              time.sleep(10)
+              print(f"Cycle {cycle + 1}: Allocated ~{allocation_size} MiB and generating CPU load for 10 seconds", flush=True)
+              end = time.time() + 10
+              payload = b"kube-metrics-cpu-load"
+              while time.time() < end:
+                  payload = hashlib.sha256(payload).digest()
           
               # Release memory by deleting the data
               del data
               print(f"Cycle {cycle + 1}: Released memory, sleeping for 5 seconds", flush=True)
               time.sleep(5)
 
-          print("Done with memory load; keeping container running", flush=True)
+          print("Done with memory and CPU load; keeping container running", flush=True)
           while True:
               time.sleep(3600)
           PY
       resources:
         requests:
           memory: "50Mi"
-          cpu: "10m"
+          cpu: "100m"
         limits:
           memory: "100Mi"
-          cpu: "100m"
+          cpu: "500m"
