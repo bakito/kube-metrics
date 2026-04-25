@@ -103,7 +103,7 @@ func RenderInfoBox(nbrPrinter *message.Printer, title, color string, stats [][2]
 			// Second column
 			rightLabel := lipgloss.PlaceHorizontal(labelWidth, lipgloss.Left, stats[i+1][0])
 			rightValue := contentStyle.Render(stats[i+1][1])
-			sb.WriteString(fmt.Sprintf("%s: %s", rightLabel, rightValue))
+			fmt.Fprintf(&sb, "%s: %s", rightLabel, rightValue)
 		}
 		sb.WriteString("\n")
 	}
