@@ -3,15 +3,15 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
-	ui "github.com/gizak/termui/v3"
-	"github.com/gizak/termui/v3/widgets"
-	tb "github.com/nsf/termbox-go"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"golang.org/x/text/message"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/discovery"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,20 +20,51 @@ import (
 var (
 	containerName string
 	interval      time.Duration
+	selector      string
 )
+
+type podModel struct {
+	ns                 string
+	podName            string
+	apiReader          client.Reader
+	pod                *corev1.Pod
+	selectedContainers []corev1.Container
+	chartGroups        map[string]ChartGroup
+	cpuMax             map[string]float64
+	memMax             map[string]float64
+	cpuCurr            map[string]float64
+	memCurr            map[string]float64
+	err                error
+	availableOptions   []string
+	width              int
+	height             int
+	interval           time.Duration
+	nbrPrinter         *message.Printer
+	selectedIndex      int
+	isFocused          bool
+}
 
 func podCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "pod <pod-name>",
+		Use:   "pod [<pod-name>]",
 		Short: "Live pod metrics",
-		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
-		RunE: func(_ *cobra.Command, args []string) error {
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			podName := ""
+			if len(args) > 0 {
+				podName = args[0]
+			}
+
+			if podName == "" && selector == "" {
+				return cmd.Help()
+			}
+
 			c, dc, ns, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			return runPodMetrics(ns, args[0], c, dc)
+			return runPodMetrics(ns, podName, c, dc)
 		},
 	}
 }
@@ -44,169 +75,325 @@ func init() {
 
 	cmd.PersistentFlags().StringVar(&containerName, "container", "", "A container name to show")
 	cmd.PersistentFlags().DurationVar(&interval, "interval", time.Second, "The interval in seconds to fetch metrics.")
+	cmd.PersistentFlags().
+		StringVarP(&selector, "selector", "l", "", "Selector (label query) to filter on, supports '=', '==', '!=', 'in', 'notin'.(e.g. -l key1=value1,key2=value2,key3 in (value3)). Matching objects must satisfy all of the specified label constraints.")
+}
+
+func (m podModel) Init() tea.Cmd {
+	if m.err != nil {
+		return nil
+	}
+	return tea.Tick(m.interval, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (m podModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+			return m, tea.Quit
+		case "enter":
+			if m.err != nil {
+				return m, nil
+			}
+			m.isFocused = !m.isFocused
+			m = m.recalculateSizes()
+			return m, nil
+		case "esc", "backspace":
+			if m.isFocused {
+				m.isFocused = false
+				m = m.recalculateSizes()
+				return m, nil
+			}
+		case "up", "k":
+			if m.err != nil {
+				return m, nil
+			}
+			cols := m.getCols()
+			if m.selectedIndex-cols >= 0 {
+				m.selectedIndex -= cols
+			}
+		case "down", "j":
+			if m.err != nil {
+				return m, nil
+			}
+			cols := m.getCols()
+			if m.selectedIndex+cols < len(m.selectedContainers) {
+				m.selectedIndex += cols
+			}
+		case "left", "h":
+			if m.err != nil {
+				return m, nil
+			}
+			if m.selectedIndex > 0 {
+				m.selectedIndex--
+			}
+		case "right", "l":
+			if m.err != nil {
+				return m, nil
+			}
+			if m.selectedIndex < len(m.selectedContainers)-1 {
+				m.selectedIndex++
+			}
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m = m.recalculateSizes()
+	case tickMsg:
+		if m.err != nil {
+			return m, nil
+		}
+
+		cpu, mem, err := getPodMetrics(context.Background(), m.apiReader, m.ns, m.podName)
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
+
+		for _, c := range m.selectedContainers {
+			n := c.Name
+			m.cpuMax[n] = math.Max(m.cpuMax[n], cpu[n])
+			m.memMax[n] = math.Max(m.memMax[n], mem[n])
+			m.cpuCurr[n] = cpu[n]
+			m.memCurr[n] = mem[n]
+
+			group := m.chartGroups[n]
+			group.Push(cpu[n], mem[n])
+			group.DrawAll()
+			m.chartGroups[n] = group
+		}
+
+		return m, tea.Tick(m.interval, func(t time.Time) tea.Msg {
+			return tickMsg(t)
+		})
+	default:
+	}
+	return m, nil
+}
+
+func (m podModel) getCols() int {
+	return 1
+}
+
+func (m podModel) recalculateSizes() podModel {
+	if m.err != nil {
+		return m
+	}
+	rowsCount := len(m.selectedContainers)
+	if m.isFocused {
+		rowsCount = 1
+	}
+
+	widthPerGroup := m.width
+	chartWidth := (widthPerGroup - 2) / 2
+	chartHeight := (m.height-5)/rowsCount - 8
+
+	if m.isFocused {
+		chartHeight = m.height - 12
+	}
+
+	if chartHeight < 2 {
+		chartHeight = 2
+	}
+
+	for _, c := range m.selectedContainers {
+		group := m.chartGroups[c.Name]
+		group.Resize(chartWidth, chartHeight)
+		m.chartGroups[c.Name] = group
+	}
+	return m
+}
+
+func (m podModel) View() tea.View {
+	if m.err != nil {
+		return renderError(m.err, m.availableOptions...)
+	}
+
+	help := "Press enter to focus, arrows to navigate, q to quit"
+	if m.isFocused {
+		help = "Press enter/esc to go back, q to quit"
+	}
+
+	header := fmt.Sprintf(" Namespace / Pod: %s / %s\n %s\n\n", m.ns, m.podName, help)
+
+	cols := m.getCols()
+	widthPerGroup := m.width / cols
+
+	var rows []string
+	var currentRow []string
+	for i, container := range m.selectedContainers {
+		if m.isFocused && i != m.selectedIndex {
+			continue
+		}
+
+		n := container.Name
+		color := "8"
+		if i == m.selectedIndex {
+			color = containerColors[i%len(containerColors)]
+		}
+
+		cpuLim := float64(container.Resources.Limits.Cpu().MilliValue()) / 1000
+		memLim := float64(container.Resources.Limits.Memory().Value()) / (1024 * 1024)
+		cpuReq := float64(container.Resources.Requests.Cpu().MilliValue()) / 1000
+		memReq := float64(container.Resources.Requests.Memory().Value()) / (1024 * 1024)
+
+		cpuUsedPerc := 0.0
+		if cpuLim > 0 {
+			cpuUsedPerc = m.cpuCurr[n] / cpuLim * 100
+		}
+		cpuReqPerc := 0.0
+		if cpuLim > 0 {
+			cpuReqPerc = cpuReq / cpuLim * 100
+		}
+		memUsedPerc := 0.0
+		if memLim > 0 {
+			memUsedPerc = m.memCurr[n] / memLim * 100
+		}
+		memReqPerc := 0.0
+		if memLim > 0 {
+			memReqPerc = memReq / memLim * 100
+		}
+
+		containerTitle := fmt.Sprintf("%s (CPU: %.0f%% / %.0f%% | Mem: %.0f%% / %.0f%%)",
+			n,
+			cpuUsedPerc,
+			cpuReqPerc,
+			memUsedPerc,
+			memReqPerc,
+		)
+
+		cpuTitle := RenderInfoBox(m.nbrPrinter, "CPU", color, [][2]string{
+			{"Used", m.nbrPrinter.Sprintf("%.0fm", m.cpuCurr[n]*1000)},
+			{"Req", container.Resources.Requests.Cpu().String()},
+			{"Max", m.nbrPrinter.Sprintf("%.0fm", m.cpuMax[n]*1000)},
+			{"Lim", container.Resources.Limits.Cpu().String()},
+		})
+
+		memTitle := RenderInfoBox(m.nbrPrinter, "Memory", color, [][2]string{
+			{"Used", m.nbrPrinter.Sprintf("%.0fMi", m.memCurr[n])},
+			{"Req", container.Resources.Requests.Memory().String()},
+			{"Max", m.nbrPrinter.Sprintf("%.0fMi", m.memMax[n])},
+			{"Lim", container.Resources.Limits.Memory().String()},
+		})
+
+		group := m.chartGroups[n]
+		view := group.Render(widthPerGroup, color, containerTitle, cpuTitle, memTitle, i == m.selectedIndex)
+		currentRow = append(currentRow, view)
+
+		if len(currentRow) == cols || i == len(m.selectedContainers)-1 {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
+			currentRow = nil
+		}
+	}
+
+	v := tea.NewView(header + joinVertical(rows...))
+	v.AltScreen = true
+	return v
 }
 
 func runPodMetrics(ns, podName string, apiReader client.Reader, dc *discovery.DiscoveryClient) error {
-	// Verify that metrics resource is available
+	// Verify that a metrics resource is available
 	if err := verifyMetricsAvailable(dc, "pods"); err != nil {
 		return fmt.Errorf("metrics server is not available: %w", err)
 	}
 
-	if err := ui.Init(); err != nil {
-		log.Fatalf("failed to initialize termui: %v", err)
-	}
-	defer ui.Close()
-
-	headerHeight := 4
-
 	ctx := context.Background()
 
-	pod := &corev1.Pod{}
-	err := apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
-	if err != nil {
-		return err
-	}
+	var pod *corev1.Pod
+	var err error
+	var availableOptions []string
 
-	selectedContainers := selectContainers(pod.Spec.Containers)
-
-	if len(selectedContainers) == 0 {
-		return fmt.Errorf(`selected container %q not found in pod "%s/%s"`, containerName, ns, podName)
-	}
-
-	width, height := tb.Size()
-	cpuData, memData, title, cpuPlots, memPlots := buildGraphs(
-		ns,
-		podName,
-		headerHeight,
-		pod,
-		selectedContainers,
-		width,
-		height,
-	)
-
-	draw := func() {
-		cpu, mem, _ := getPodMetrics(ctx, apiReader, ns, podName)
-
-		plots := []ui.Drawable{title}
-
-		nbrPrinter := numberPrinter()
-
-		for _, container := range selectedContainers {
-			n := container.Name
-			cpuData[n].data = append(cpuData[n].data[1:], cpu[n])
-			memData[n].data = append(memData[n].data[1:], mem[n])
-
-			cpuData[n].max = math.Max(cpuData[n].max, cpu[n])
-			memData[n].max = math.Max(memData[n].max, mem[n])
-
-			cpuPlots[n].Data[0] = cpuData[n].data
-			memPlots[n].Data[0] = memData[n].data
-
-			cpuPlots[n].Title = fmt.Sprintf(" %s CPU (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
-				container.Name,
-				container.Resources.Requests.Cpu(),
-				container.Resources.Limits.Cpu(),
-				numberPrinter().Sprintf("%.0fm", cpu[n]*1000),
-				numberPrinter().Sprintf("%.0fm", cpuData[n].max*1000),
-			)
-
-			memPlots[n].Title = fmt.Sprintf(" %s Memory (Req: %s / Lim: %s / Curr: %s / Max: %s) ",
-				container.Name,
-				container.Resources.Requests.Memory(),
-				container.Resources.Limits.Memory(),
-				nbrPrinter.Sprintf("%.0fMi", mem[n]),
-				nbrPrinter.Sprintf("%.0fMi", memData[n].max),
-			)
-
-			plots = append(plots, cpuPlots[n], memPlots[n])
+	if selector != "" {
+		sel, parseErr := labels.Parse(selector)
+		if parseErr != nil {
+			return fmt.Errorf("invalid selector: %w", parseErr)
 		}
-
-		ui.Render(plots...)
-	}
-
-	draw()
-	uiEvents := ui.PollEvents()
-	ticker := time.NewTicker(interval).C
-	for {
-		select {
-		case e := <-uiEvents:
-			switch e.ID {
-			case "q", "<C-c>":
-				return nil
-			case "<Resize>":
-				payload := e.Payload.(ui.Resize) //nolint:revive,forcetypeassert
-				cpuData, memData, title, cpuPlots, memPlots = buildGraphs(ns, podName, headerHeight, pod,
-					selectedContainers, payload.Width, payload.Height)
-				ui.Clear()
-				draw()
+		podList := &corev1.PodList{}
+		err = apiReader.List(ctx, podList, client.InNamespace(ns), client.MatchingLabelsSelector{Selector: sel})
+		if err == nil {
+			switch {
+			case len(podList.Items) == 0:
+				err = fmt.Errorf("no pods matching selector %q found in namespace %q", selector, ns)
+			case len(podList.Items) > 1 && podName == "":
+				err = fmt.Errorf("multiple pods matching selector %q found in namespace %q", selector, ns)
+				for _, p := range podList.Items {
+					availableOptions = append(availableOptions, p.Name)
+				}
+			case podName != "": // If podName is provided, find it in the list
+				found := false
+				for i := range podList.Items {
+					if podList.Items[i].Name == podName {
+						pod = &podList.Items[i]
+						found = true
+						break
+					}
+				}
+				if !found {
+					err = fmt.Errorf("pod %q not found in pods matching selector %q", podName, selector)
+					for _, p := range podList.Items {
+						availableOptions = append(availableOptions, p.Name)
+					}
+				}
 			default:
+				pod = &podList.Items[0]
+				podName = pod.Name
 			}
-		case <-ticker:
-			draw()
+		}
+	} else {
+		pod = &corev1.Pod{}
+		err = apiReader.Get(ctx, client.ObjectKey{Namespace: ns, Name: podName}, pod)
+		if err != nil && isNotFound(err) {
+			podList := &corev1.PodList{}
+			if listErr := apiReader.List(ctx, podList, client.InNamespace(ns)); listErr == nil {
+				for _, p := range podList.Items {
+					availableOptions = append(availableOptions, p.Name)
+				}
+			}
 		}
 	}
-}
 
-func buildGraphs(
-	ns string,
-	podName string,
-	headerHeight int,
-	pod *corev1.Pod,
-	selectedContainers []corev1.Container,
-	width, height int,
-) (
-	cpuData map[string]*plotData,
-	memData map[string]*plotData,
-	p *widgets.Paragraph,
-	cpuPlots map[string]*widgets.Plot,
-	memPlots map[string]*widgets.Plot,
-) {
-	height -= headerHeight
-	if height < 0 {
-		height = 0
-	}
-	if containerName == "" {
-		height /= len(pod.Spec.Containers)
+	var selectedContainers []corev1.Container
+	if err == nil && pod != nil {
+		selectedContainers = selectContainers(pod.Spec.Containers)
+		if len(selectedContainers) == 0 {
+			err = fmt.Errorf(`selected container %q not found in pod "%s/%s"`, containerName, ns, podName)
+		}
 	}
 
-	cpuData = initData(selectedContainers, width/2-5)
-	memData = initData(selectedContainers, width/2-5)
-
-	cpuPlots = make(map[string]*widgets.Plot)
-	memPlots = make(map[string]*widgets.Plot)
-
-	p = widgets.NewParagraph()
-	p.Title = " Namespace / Pod "
-	p.Text = fmt.Sprintf(" %s / %s\n Press q to quit", ns, podName)
-	p.SetRect(0, 0, width, headerHeight)
-	p.TextStyle.Fg = ui.ColorWhite
-	p.BorderStyle.Fg = ui.ColorYellow
-
-	for i, container := range selectedContainers {
-		lc := newPlot()
-		lc.Data[0] = cpuData[container.Name].data
-		lc.SetRect(0, i*height+headerHeight, width/2, (i+1)*height+headerHeight)
-		lc.LineColors[0] = ui.ColorGreen
-		cpuPlots[container.Name] = lc
-
-		lc2 := newPlot()
-		lc2.Data[0] = memData[container.Name].data
-		lc2.SetRect(width/2, i*height+headerHeight, width, (i+1)*height+headerHeight)
-		lc2.LineColors[0] = ui.ColorYellow
-		memPlots[container.Name] = lc2
+	m := podModel{
+		ns:                 ns,
+		podName:            podName,
+		apiReader:          apiReader,
+		pod:                pod,
+		selectedContainers: selectedContainers,
+		chartGroups:        make(map[string]ChartGroup),
+		cpuMax:             make(map[string]float64),
+		memMax:             make(map[string]float64),
+		cpuCurr:            make(map[string]float64),
+		memCurr:            make(map[string]float64),
+		interval:           interval,
+		nbrPrinter:         numberPrinter(),
+		err:                err,
+		availableOptions:   availableOptions,
 	}
-	return cpuData, memData, p, cpuPlots, memPlots
-}
 
-func newPlot() *widgets.Plot {
-	p := widgets.NewPlot()
-	p.Data = make([][]float64, 1)
-	p.AxesColor = ui.ColorWhite
-	p.ShowXAxisLabels = false
-	p.TitleStyle.Fg = ui.ColorCyan
-	// clone line colors as both instances have the same instance of the color array
-	p.LineColors = append([]ui.Color{}, p.LineColors...)
-	return p
+	if err == nil {
+		for _, c := range selectedContainers {
+			m.chartGroups[c.Name] = NewChartGroup(m.nbrPrinter)
+		}
+	}
+
+	p := tea.NewProgram(m)
+	_, err = p.Run()
+	return err
 }
 
 func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace, podName string) (
@@ -229,19 +416,6 @@ func getPodMetrics(ctx context.Context, apiReader client.Reader, namespace, podN
 	return cpu, mem, nil
 }
 
-func initData(containers []corev1.Container, size int) map[string]*plotData {
-	if size < 0 {
-		size = 0
-	}
-	data := make(map[string]*plotData)
-	for _, container := range containers {
-		if containerName == "" || container.Name == containerName {
-			data[container.Name] = &plotData{data: make([]float64, size)}
-		}
-	}
-	return data
-}
-
 func selectContainers(containers []corev1.Container) []corev1.Container {
 	var filtered []corev1.Container
 	for _, c := range containers {
@@ -250,9 +424,4 @@ func selectContainers(containers []corev1.Container) []corev1.Container {
 		}
 	}
 	return filtered
-}
-
-type plotData struct {
-	data []float64
-	max  float64
 }

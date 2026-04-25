@@ -12,10 +12,21 @@ test: tidy lint
 	go tool cover -func=coverage.out
 
 vhs-pod:
+	kubectl apply -f docs/PodMemoryLoadDemo.yaml
+	kubectl wait --for=condition=ready pod two-container-memory-demo -n default --timeout=60s
+	@for i in $$(seq 1 20); do \
+		kubectl get podmetrics.metrics.k8s.io -n default two-container-memory-demo >/dev/null 2>&1 && exit 0; \
+		sleep 1; \
+	done; \
+	kubectl get podmetrics.metrics.k8s.io -n default two-container-memory-demo
 	vhs docs/pod.tape
+	kubectl delete -f docs/PodMemoryLoadDemo.yaml --force
 
 vhs-node:
+	kubectl apply -f docs/PodMemoryLoadDemo.yaml
+	kubectl wait --for=condition=ready pod two-container-memory-demo -n default --timeout=60s
 	vhs docs/node.tape
+	kubectl delete -f docs/PodMemoryLoadDemo.yaml --force
 
 release: tb.semver tb.goreleaser tb.syft
 	@version=$$($(TB_LOCALBIN)/semver); \

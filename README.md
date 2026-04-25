@@ -8,7 +8,7 @@ Print pod metrics based on metrics.k8s.io/v1beta1
 kube-metrics pod <pod-name>
 ```
 
-[![pod.gif](docs/pod.png)](docs/pod.gif)
+[![pod.gif](docs/pod.gif)](docs/pod.gif)
 
 ## Node
 
@@ -16,7 +16,7 @@ kube-metrics pod <pod-name>
 kube-metrics node <node-name>
 ```
 
-[![node.gif](docs/node.png)](docs/node.gif)
+[![node.gif](docs/node.gif)](docs/node.gif)
 
 ## Use as k9s Plugin
 
