@@ -7,12 +7,12 @@ require (
 	github.com/NimbleMarkets/ntcharts v0.4.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/text v0.35.0
-	k8s.io/api v0.35.3
-	k8s.io/apimachinery v0.35.3
-	k8s.io/cli-runtime v0.35.3
-	k8s.io/client-go v0.35.3
-	k8s.io/metrics v0.35.3
+	golang.org/x/text v0.36.0
+	k8s.io/api v0.35.4
+	k8s.io/apimachinery v0.35.4
+	k8s.io/cli-runtime v0.35.4
+	k8s.io/client-go v0.35.4
+	k8s.io/metrics v0.35.4
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
