@@ -235,7 +235,10 @@ func (m podModel) View() tea.View {
 		}
 
 		n := container.Name
-		color := containerColors[i%len(containerColors)]
+		color := "8"
+		if i == m.selectedIndex {
+			color = containerColors[i%len(containerColors)]
+		}
 
 		cpuLim := float64(container.Resources.Limits.Cpu().MilliValue()) / 1000
 		memLim := float64(container.Resources.Limits.Memory().Value()) / (1024 * 1024)

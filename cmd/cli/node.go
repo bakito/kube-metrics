@@ -225,7 +225,10 @@ func (m nodeModel) View() tea.View {
 		}
 
 		nodeName := node.Name
-		color := containerColors[i%len(containerColors)]
+		color := "8"
+		if i == m.selectedIndex {
+			color = containerColors[i%len(containerColors)]
+		}
 
 		cpuAll := float64(node.Status.Allocatable.Cpu().MilliValue()) / 1000
 		memAll := float64(node.Status.Allocatable.Memory().Value()) / (1024 * 1024)

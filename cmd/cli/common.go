@@ -110,7 +110,7 @@ func RenderInfoBox(nbrPrinter *message.Printer, title, color string, stats [][2]
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
+		BorderForeground(lipgloss.Color(color)).
 		Padding(0, 1).
 		Render(strings.TrimSpace(sb.String()))
 }
