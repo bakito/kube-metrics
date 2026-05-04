@@ -6,8 +6,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/NimbleMarkets/ntcharts/canvas/runes"
-	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
+	"github.com/NimbleMarkets/ntcharts/v2/canvas/runes"
+	"github.com/NimbleMarkets/ntcharts/v2/linechart/streamlinechart"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/text/message"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
