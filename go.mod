@@ -3,7 +3,7 @@ module github.com/bakito/kube-metrics
 go 1.26.0
 
 require (
-	charm.land/bubbletea/v2 v2.0.6
+	charm.land/bubbletea/v2 v2.0.7
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/NimbleMarkets/ntcharts/v2 v2.2.0
 	github.com/spf13/cobra v1.10.2
