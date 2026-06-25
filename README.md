@@ -50,6 +50,7 @@ kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/
 ```bash
 # Add the tap
 brew tap bakito/tap
+brew trust bakito/tap
 
 # install
 brew install --cask kube-metrics
