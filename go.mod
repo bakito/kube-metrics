@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	charm.land/bubbletea/v2 v2.0.8
-	charm.land/lipgloss/v2 v2.0.4
+	charm.land/lipgloss/v2 v2.0.5
 	github.com/NimbleMarkets/ntcharts/v2 v2.2.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/text v0.38.0
