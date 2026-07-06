@@ -3,7 +3,7 @@ module github.com/bakito/kube-metrics
 go 1.26.0
 
 require (
-	charm.land/bubbletea/v2 v2.0.7
+	charm.land/bubbletea/v2 v2.0.8
 	charm.land/lipgloss/v2 v2.0.4
 	github.com/NimbleMarkets/ntcharts/v2 v2.2.0
 	github.com/spf13/cobra v1.10.2
@@ -21,7 +21,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260525132238-948f4557a654 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260703014108-f5a850f9c2b7 // indirect
 	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
@@ -75,7 +75,7 @@ require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
