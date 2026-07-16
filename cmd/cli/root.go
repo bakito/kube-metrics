@@ -21,6 +21,7 @@ import (
 var (
 	scheme            = runtime.NewScheme()
 	namespace         string
+	kubeContext       string
 	nbrFormatLanguage string
 
 	// rootCmd represents the base command when called without any subcommands.
@@ -47,12 +48,16 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "",
 		"If present, the namespace scope for this CLI request. Otherwise the cube context namespace is used.")
+	rootCmd.PersistentFlags().StringVar(&kubeContext, "context", "", "The name of the kubeconfig context to use")
 	rootCmd.PersistentFlags().StringVar(&nbrFormatLanguage, "nfl", "de-CH", "the number format language to be used.")
 }
 
 // get a k8s client and default namespace.
 func newClient() (client.Client, *discovery.DiscoveryClient, string, error) {
 	cf := genericclioptions.NewConfigFlags(true)
+	if kubeContext != "" {
+		cf.Context = &kubeContext
+	}
 
 	var err error
 	ns := namespace
