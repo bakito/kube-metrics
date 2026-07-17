@@ -37,9 +37,9 @@ kube-metrics can be integrated as [k9s plugin](https://k9scli.io/topics/plugins/
       - -c
       - |
         if [ -n "$NAMESPACE" ]; then
-          kube-metrics pod --namespace=$NAMESPACE $NAME
+          kube-metrics pod --context $CONTEXT --namespace=$NAMESPACE $NAME
         else
-          kube-metrics node $NAME
+          kube-metrics node --context $CONTEXT $NAME
         fi
 ```
 
