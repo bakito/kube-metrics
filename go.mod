@@ -5,7 +5,7 @@ go 1.27.2
 require (
 	charm.land/bubbletea/v2 v2.1.0
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/NimbleMarkets/ntcharts/v2 v2.6.0
+	github.com/NimbleMarkets/ntcharts/v2 v2.7.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/text v0.43.0
 	k8s.io/api v0.37.1
