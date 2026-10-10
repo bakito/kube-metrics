@@ -1,6 +1,6 @@
 module github.com/bakito/kube-metrics
 
-go 1.26.8
+go 1.27.2
 
 require (
 	charm.land/bubbletea/v2 v2.1.0
