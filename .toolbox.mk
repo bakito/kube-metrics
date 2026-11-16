@@ -25,7 +25,7 @@ TB_GORELEASER_VERSION ?= v2.20.2
 # renovate: packageName=github.com/bakito/semver
 TB_SEMVER_VERSION ?= v1.1.13
 # renovate: packageName=github.com/anchore/syft/cmd/syft
-TB_SYFT_VERSION ?= v1.55.0
+TB_SYFT_VERSION ?= v1.57.1
 TB_SYFT_VERSION_NUM ?= $(call STRIP_V,$(TB_SYFT_VERSION))
 
 ## Tool Installer
